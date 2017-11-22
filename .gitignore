@@ -1,3 +1,6 @@
+# Secret file (DB passwords, etc.)
+secret.R
+
 # History files
 .Rhistory
 .Rapp.history
