@@ -33,3 +33,4 @@ user_knot_labels <- sql("SELECT substring(userid, 1, 7) as user_id, knotname, la
 
 # CONVERT(datetime, '2017-11-21 00:00:00', 120)
 
+write.csv(user_knot_labels, sprintf("user_knot_labels_%s.csv", format(Sys.Date(), format="%Y%m%d")), row.names=FALSE, quote=FALSE)
