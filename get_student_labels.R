@@ -1,7 +1,7 @@
 
 # woodknotlabeler.azurewebsites.net
 
-source("woodknots_db_secrets.R")
+source("secret.R")
 
 conn_info <- list(
   Driver="{ODBC Driver 13 for SQL Server}",
