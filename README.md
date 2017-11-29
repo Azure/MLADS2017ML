@@ -6,11 +6,11 @@ The use case (labeling knots in lumber) and concepts of image featurization are 
 
 ## Active Learning
 
-[Active learning](https://en.wikipedia.org/wiki/Active_learning) helps us address the common situation where we have large amounts of data, but labeling this data is expensive. By using a preliminary model to select the cases that are likely to be most useful for improving the model, and iterating through several cycles of model training and case selection, we can often build a model using a much smaller training set (thus requiring less labeling effort) than we would otherwise need. Companies like [CrowdFlower](https://www.crowdflower.com/) and services like the [Azure Custom Vision service](https://azure.microsoft.com/en-us/services/cognitive-services/custom-vision-service/) make use of active learning.  These images are from the [University of Oulu](http://www.ee.oulu.fi/~olli/Projects/Lumber.Grading.html), Finland.
+[Active learning](https://en.wikipedia.org/wiki/Active_learning) helps us address the common situation where we have large amounts of data, but labeling this data is expensive. By using a preliminary model to select the cases that are likely to be most useful for improving the model, and iterating through several cycles of model training and case selection, we can often build a model using a much smaller training set (thus requiring less labeling effort) than we would otherwise need. Companies like [CrowdFlower](https://www.crowdflower.com/) and services like the [Azure Custom Vision service](https://azure.microsoft.com/en-us/services/cognitive-services/custom-vision-service/) make use of active learning. These images are from the [University of Oulu](http://www.ee.oulu.fi/~olli/Projects/Lumber.Grading.html), Finland.
 
 ### Image Labeling website
 
-Our [label collection website](woodknotlabeler.azurewebsites.net) has instructions for how to recognize the different classes of knots, a page where you can practice, and a page where workshop participants can enter their labels for the images chosen for the first round of active learning.
+Our [label collection website](https://woodknotlabeler.azurewebsites.net) has instructions for how to recognize the different classes of knots, a page where you can practice, and a page where workshop participants can enter their labels for the images chosen for the first round of active learning.
 
 ## Contributing
 

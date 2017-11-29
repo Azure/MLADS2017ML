@@ -22,10 +22,18 @@ get_pseudolabelling_function <- function(plabels_file, knot_classes=KNOT_CLASSES
   }
 }
 
+get_new_pseudolabelled_sample <- function(labelled_filenames){
+  labelled_filenames <- labelled_filenames[!is.na(labelled_filenames$path),]
+  row.names(labelled_filenames) <- labelled_filenames$path
+  pls <- unlabelled_knot_data_df[unlabelled_knot_data_df$path %in% labelled_filenames$path, ]
+  pls$knot_class <- labelled_filenames[pls$path, "knot_class"]
+  pls
+}
+
 fit_and_evaluate_model <- function(candidate_cases, been_there = character(0),  # pseudolabeller, 
                                    form=FORM, test_set=TEST_SET, 
                                    additional_cases_to_label=ADDITIONAL_CASES_TO_LABEL, 
-                                   balance_classes=TRUE){
+                                   balance_classes=BALANCE_CLASSES){
   
   compute_roc <- function(dframe){
     library(pROC)
@@ -40,14 +48,14 @@ fit_and_evaluate_model <- function(candidate_cases, been_there = character(0),  
   prediction_entropy <- function(dframe){
     with(dframe, entropy(sound_knot, dry_knot))
   }
-
+  
   select_cases <- function(predictions_df, N=100){
-
+    
     selected <- predictions_df %>%
       mutate(entropy=entropy(sound_knot, dry_knot)) %>%
       mutate(max_prob=apply(cbind(sound_knot, dry_knot, encased_knot), 1, max)) %>%
       arrange(max_prob)  # -entropy
-
+    
     if (balance_classes){
       return(bind_rows(
         selected[selected$pred_class=="sound_knot",][1:N,],
@@ -57,10 +65,10 @@ fit_and_evaluate_model <- function(candidate_cases, been_there = character(0),  
     } else{
       return(head(selected, n=N))
     }
-
+    
   }
   
-  # NOTE: candidate_cases may include cases that not of the classes we are modeling. 
+  # NOTE: candidate_cases may include cases that are not of the classes we are modeling. 
   # We depend on labellers to remove these
   training_set_new <- candidate_cases %>% filter(knot_class %in% KNOT_CLASSES)
   training_set_new$knot_class <- factor(as.character(training_set_new$knot_class), levels=KNOT_CLASSES)
@@ -78,10 +86,10 @@ fit_and_evaluate_model <- function(candidate_cases, been_there = character(0),  
     
     still_unlabelled <- setdiff(unlabelled_knot_data_df$path, been_there)
     unlabelled_df <- unlabelled_knot_data_df[unlabelled_knot_data_df$path %in% still_unlabelled,]
-
+    
     pred_unlabelled <- rxPredict(fit_new, unlabelled_df, extraVarsToWrite=c("path"))
     names(pred_unlabelled) <- c("path", "pred_class", "sound_knot", "dry_knot", "encased_knot")
-
+    
     selected <- select_cases(pred_unlabelled, N=additional_cases_to_label)
     
     results <- list(

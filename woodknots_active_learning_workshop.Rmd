@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, cache=FALSE, message=FALSE)
+knitr::opts_chunk$set(echo = TRUE, cache=FALSE, message=FALSE, fig.height=7.5)
 rxOptions(reportProgress=0)
 ```
 
@@ -16,10 +16,13 @@ This is a followup to our earlier blog post "[Featurizing images: the shallow en
 
 
 
-```{r collect_unlabelled_image_data}
+```{r parameters}
 
 ### Libraries ###
 library(dplyr)
+library(tidyr)
+library(ggplot2)
+
 library(pROC)
 
 ### Meta-hyperparameters ###
@@ -36,18 +39,18 @@ ADDITIONAL_CASES_TO_LABEL <- 2  # cases per class if BALANCE_CLASSES is TRUE
 
 NUM_ITERATIONS <- 10
 
-NUM_BOOTSTRAPS <- 100
+MONTE_CARLO_SAMPLES <- 10
 
 # This order determines the order of factor levels
 KNOT_CLASSES <- setNames(nm=c("sound_knot", "dry_knot", "encased_knot"))
 
 LABELLED_FEATURIZED_DATA <- "labelled_knots_featurized_resnet18.Rds"
-UNLABELLED_FEATURIZED_DATA <- "unlabelled_knots_featurized_resnet18.Rds"
-
-PSEUDOLABELS_FILE <- "unlabelled_knot_info.csv" # We'll pretend these come from our labellers
+UNLABELLED_FEATURIZED_DATA <- "unlabelled_knots_featurized_large_resnet18.Rds"
 
 unlabelled_knot_data_df <- readRDS(UNLABELLED_FEATURIZED_DATA)
 labelled_knot_data_df <- readRDS(LABELLED_FEATURIZED_DATA)
+
+PSEUDOLABELS_FILE <- "unlabelled_knot_info_area_small.csv" # "unlabelled_knot_info.csv" # We'll pretend these come from our labellers
 
 inputs <- grep("^Feature", names(labelled_knot_data_df), value=TRUE)
 outcome <- "knot_class"
@@ -61,31 +64,15 @@ FORM <- formula(paste(outcome, paste(inputs, collapse="+"), sep="~"))
 Here are the first five rows of the featurized labelled dataset:
 
 ```{r example_of_data}
-labelled_knot_data_df[1:5, c(1,2, 3, 4, 513, 514)]
+labelled_knot_data_df[1:5, c(1, 2, 3, 4, 513, 514)]
 
 ```
 
 The first column is the file name, the last column is the label, and the 512 numeric columns in between are the features computed by the deep neural network. We will be using these numbers for classifying the images, not the images themselves.
 
-
-```{r image_of_feature_set, eval=FALSE, echo=FALSE}
-# Here is an image of all of these features for all the images:
-
-M <- as.matrix(labelled_knot_data_df[2:513])
-image(1:ncol(M), 1:nrow(M), t(M[nrow(M):1,]))
-lines(5*colMeans(M))  # show the (exaggerated) mean for each column of pixels
-
-```
-
-### Knot class model
-
-First we build a model on the available training data, and test on the test data. This model will focus on classifying a knot image into three categories: "sound_knot", "dry_knot", and "encased_knot". In the blog post there was also a category for "decayed_knot", but we will consider decay a separate attribute, and not use it in this model. We will use only a small number of the available labelled cases for training, and the rest for testing. This makes a larger test set and a smaller training set than in the blog post.
-
+### Split labelled data into training and test sets
 
 ```{r split_train_and_test_sets}
-
-# knot_data_df <- labelled_knot_data_df
-
 
 class_samples <- lapply(KNOT_CLASSES, function(kc) sample(which(labelled_knot_data_df$knot_class == kc), INITIAL_EXAMPLES_PER_CLASS))
 
@@ -96,8 +83,16 @@ TEST_SET <- labelled_knot_data_df[!in_training_set,]
 
 table(initial_training_set$knot_class)
 
+
+table(initial_training_set$knot_class)/nrow(initial_training_set)
 ```
 
+
+## Initial model for knot classes
+
+First we build a model on the available training data, and test on the test data. This model will focus on classifying a knot image into three categories: "sound_knot", "dry_knot", and "encased_knot". In the blog post there was also a category for "decayed_knot", but we will consider decay a separate attribute, and not use it in this model. We will use only a small number of the available labelled cases for training, and the rest for testing. This makes a larger test set and a smaller training set than in the blog post.
+
+### Fit model to initial training set
 
 ```{r tune_and_train_model}
 source("woodknots_active_learning_lib.R")
@@ -107,16 +102,14 @@ pseudolabel_function <- get_pseudolabelling_function(PSEUDOLABELS_FILE, KNOT_CLA
 initial_model_results <- fit_and_evaluate_model(initial_training_set)
 
 ```
+
 ## Results for initial model
 
-### Confusion matrix
+#### Confusion matrix
 
-```{r initial_model_confuaion}
+```{r initial_model_confusion}
 
 initial_model_results$confusion
-
-# Most of them are sound knots, with very few encased knots
-rowSums(initial_model_results$confusion)/sum(initial_model_results$confusion)
 
 ```
 
@@ -131,36 +124,30 @@ initial_model_results$performance
 
 ```{r class_score_histograms}
 
-with(initial_model_results$test_predictions, {
-  hist(sound_knot, breaks=100)
-  hist(dry_knot, breaks=100)
-  hist(encased_knot, breaks=100)
-})
+plot_class_histograms <- function(pred){
+  pred %>% 
+    gather(category, score, -c(path, knot_class, pred_class)) %>%
+    ggplot(aes(x=score, col=knot_class)) + geom_histogram(bins=50) + facet_grid( knot_class ~ .)
+}
+
+
+plot_class_histograms(initial_model_results$test_predictions)
 
 ```
 
 ### ROC curves
 
 ```{r roc_curves}
-res <- mapply(plot, x=initial_model_results$roc_list, main=names(initial_model_results$roc_list), print.auc=TRUE)
-
+# op <- par(mfrow=c(3,1), no.readonly = TRUE)
+mapply(plot, x=initial_model_results$roc_list, main=names(initial_model_results$roc_list), print.auc=TRUE) %>% invisible
+# par(op)
 ```
 
 ### Plot of test cases on entropy surface
 
-Here is a 3d entropy surface you can try at home:
-
-```{r simulated_entropy data, eval=FALSE}
-library(rgl)
-data.frame(x=runif(1e4), y=runif(1e4)) %>% 
-  filter(x+y<1) %>% 
-  mutate(z=entropy(x, y)) %>%
-  with(plot3d(x,y,z))
-```
-
 Here we'll stick to a 2D representation, where the yellow background indicates regions of lower entropy.
 
-```{r plot_initial_class_separation, fig.height=7}
+```{r plot_initial_class_separation}
 
 
 plot_class_separation(initial_model_results$test_predictions)
@@ -170,14 +157,6 @@ plot_class_separation(initial_model_results$test_predictions)
 ## Iterate modelling, case selection, and (pseudo) labelling
 
 ```{r iterate}
-
-get_new_pseudolabelled_sample <- function(labelled_filenames){
-  labelled_filenames <- labelled_filenames[!is.na(labelled_filenames$path),]
-  row.names(labelled_filenames) <- labelled_filenames$path
-  pls <- unlabelled_knot_data_df[unlabelled_knot_data_df$path %in% labelled_filenames$path, ]
-  pls$knot_class <- labelled_filenames[pls$path, "knot_class"]
-  pls
-}
 
 new_sample <- initial_model_results$selected %>% pseudolabel_function %>% get_new_pseudolabelled_sample
 
@@ -199,11 +178,6 @@ iteration_results <- lapply(1:NUM_ITERATIONS, function(i){
 ```
 
 
-These are the cases selected at each iteration:
-```{r info_for_selected_cases}
-lapply(iteration_results, function(ires) ires$selected_labelled)
-```
-
 This shows the change in the metrics, with each row showing an iteration. The 'negentropy' metric is the negative entropy across all three class probabilities.
 
 ```{r visualize_metrics_by_iteration}
@@ -222,63 +196,44 @@ plot_roc_history("dry", initial_model_results, iteration_results)
 plot_roc_history("encased", initial_model_results, iteration_results)
 ```
 
-### Classifier evolution
-
-```{r classifier_evolution, fig.height=7}
-for (i in seq_along(iteration_results)){
-    plot_class_separation(iteration_results[[i]]$test_predictions, 
-                          previous=if(1==i){
-                                      initial_model_results$test_predictions 
-                                    } else { 
-                                      iteration_results[[i-1]]$test_predictions
-                                    },
-                          main=sprintf("Iteration %d", i)
-    )
-}
-plot_class_separation(iteration_results[[length(iteration_results)]]$test_predictions, main="Final")
-```
 
 
 ### Final model results
 
 ```{r final_model}
 final_model_results <- iteration_results[[NUM_ITERATIONS]]
+```
 
+```{r final_model_confusion_matrix}
 final_model_results$confusion
 ```
 
+### Entropy surface plot
 
-```{r model_coefficients, eval=FALSE, echo=FALSE}
-### Model Coefficients
-
-final_coef <- final_model_results$model %>% coef
-
-final_coef %>% length
-
-final_coef %>% plot(pch='.')
-
-final_coef %>% names %>% gsub("[^\\d]*([\\d]+)", "\\1", ., perl=TRUE) %>% table %>% sort %>% rev %>% head
-
-# saveRDS(final_model_results, "final_model_results.Rds")
-
+```{r classifier_evolution}
+plot_class_separation(final_model_results$test_predictions, main="Final")
 ```
 
 ### Histograms of class scores for final model
 
 ```{r final_class_score_histograms}
 
-with(final_model_results$test_predictions, {
-  hist(sound_knot, breaks=100)
-  hist(dry_knot, breaks=100)
-  hist(encased_knot, breaks=100)
-})
+plot_class_histograms(final_model_results$test_predictions)
+
 ```
 
 
+Summary of performance using cases selected with active learning:
 
-## Bootstrapping P-values
+```{r summary_of_preformance_using_selected_cases}
 
-What is the probability that a set of randomly chosen cases would improve the performance of the model as much as the selected cases did? We'll add the same number of examples to the training set, except that now they will be randomly chosen. We'll repeat this sampling, training, and evaluation process `r NUM_BOOTSTRAPS` times, and see how many of those times we beat the performance of the selected cases.
+(selected_sample_results <- final_model_results$performance)
+```
+
+
+## Monte Carlo Estimation of P-values
+
+What is the probability that a set of randomly chosen cases would improve the performance of the model as much as the selected cases did? We'll add the same number of examples to the training set, except that now they will be randomly chosen. We'll repeat this sampling, training, and evaluation process `r MONTE_CARLO_SAMPLES` times, and see how many of those times we beat the performance of the selected cases.
 
 
 ```{r bootstrap_probability}
@@ -287,7 +242,7 @@ What is the probability that a set of randomly chosen cases would improve the pe
 
 available_cases <- pseudolabel_function(unlabelled_knot_data_df)
 
-random_sample_results <- sapply(1:NUM_BOOTSTRAPS, function(i){
+random_sample_results <- sapply(1:MONTE_CARLO_SAMPLES, function(i){
   new_sample <- available_cases[sample(1:nrow(available_cases), N, replace=FALSE),]
 
   training_set_new <- rbind(initial_training_set, new_sample[names(initial_training_set)])
@@ -302,37 +257,19 @@ random_sample_results <- sapply(1:NUM_BOOTSTRAPS, function(i){
 saveRDS(random_sample_results, sprintf("random_sample_results_iteration%02d.Rds", NUM_ITERATIONS))
 ```
 
-Summary of random sample performance:
-
-```{r random_sample_results}
-
-random_sample_results[,1:4]
-
-apply(random_sample_results, 1, mean)
-apply(random_sample_results, 1, sd)
-apply(random_sample_results, 1, max)
-
-```
-
-Summary of performance using cases selected with active learning:
-
-```{r summary_of_preformance_using_selected_cases}
-
-(selected_sample_results <- iteration_results[[length(iteration_results)]]$performance)
-```
 
 ### P-values
 
-This table shows the number of times out of `r NUM_BOOTSTRAPS` tries that the randomly selected cases equalled or exceeded theperformance of the actively learned cases for each metric. These numbers are estimated P-values in percent.
+This table shows the number of times out of `r MONTE_CARLO_SAMPLES` tries that the randomly selected cases equalled or exceeded theperformance of the actively learned cases for each metric. These numbers are estimated P-values in percent.
 
 ```{r p_values}
 mapply ( 
   function(metric) sum(random_sample_results[metric,] >= selected_sample_results[[metric]]), 
   row.names(random_sample_results)
-) / NUM_BOOTSTRAPS
+) / MONTE_CARLO_SAMPLES
 
 # combine AUCs
-sum(colMeans(random_sample_results[2:4,]) >= mean(unlist(selected_sample_results[2:4]))) / NUM_BOOTSTRAPS
+sum(colMeans(random_sample_results[2:4,]) >= mean(unlist(selected_sample_results[2:4]))) / MONTE_CARLO_SAMPLES
 
 
 ```
@@ -341,7 +278,7 @@ sum(colMeans(random_sample_results[2:4,]) >= mean(unlist(selected_sample_results
 
 For comparison, we'll build a model as though we had gone through and labelled all `r nrow(available_cases)` of the useable new examples.
 
-```{r full_model_results, fig.height=7.5}
+```{r full_model_results}
 training_set_full <- rbind(initial_training_set, available_cases[names(initial_training_set)])
 
 full_model_results <- fit_and_evaluate_model(training_set_full)

@@ -1,0 +1,162 @@
+---
+title: "Assessment of User Labels"
+author: "Bob Horton"
+date: "November 22, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, cache=FALSE, message=FALSE)
+rxOptions(reportProgress=0)
+```
+
+## Performance of models trained on user-labeled data
+
+Here we add the labels provided by each user to the initial training set and assess the effects of this newly labelled data on model performance.
+
+```{r parameters}
+
+### Libraries ###
+library(dplyr)
+library(pROC)
+
+### Meta-hyperparameters ###
+set.seed(1)  ###
+
+L1_PENALTY <- 1e-2
+L2_PENALTY <- 1e-2
+
+INITIAL_EXAMPLES_PER_CLASS <- 6  # cases from the labelled dataset used to train the initial model
+
+# This order determines the order of factor levels
+KNOT_CLASSES <- setNames(nm=c("sound_knot", "dry_knot", "encased_knot"))
+
+LABELLED_FEATURIZED_DATA <- "labelled_knots_featurized_resnet18.Rds"
+UNLABELLED_FEATURIZED_DATA <- "unlabelled_knots_featurized_resnet18.Rds"
+
+unlabelled_knot_data_df <- readRDS(UNLABELLED_FEATURIZED_DATA)
+labelled_knot_data_df <- readRDS(LABELLED_FEATURIZED_DATA)
+
+inputs <- grep("^Feature", names(labelled_knot_data_df), value=TRUE)
+outcome <- "knot_class"
+FORM <- formula(paste(outcome, paste(inputs, collapse="+"), sep="~"))
+
+ADDITIONAL_CASES_TO_LABEL <- 0 
+BALANCE_CLASSES <- TRUE
+```
+
+```{r user_label_data}
+
+source("secret.R")
+
+conn_info <- list(
+  Driver="{ODBC Driver 13 for SQL Server}",
+  Server="tcp:jichangserver.database.windows.net,1433",
+  Database="woodknots",
+  Uid=secret$Uid,
+  Pwd=secret$Pwd,
+  Encrypt="yes",
+  TrustServerCertificate="no",
+  `Connection Timeout`="30;"
+)
+
+conn_str <- paste(paste(names(conn_info), conn_info, sep="="), collapse=";")
+
+
+library(RODBC)
+dbhandle <- odbcDriverConnect(conn_str)
+sql <- function(q) sqlQuery(dbhandle, q) # same syntax as sqldf
+
+# sql("SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE='BASE TABLE'")
+
+# sql("SELECT top 5 * FROM UserKnotLabel")
+
+  
+(user_knot_labels <- sql("SELECT substring(userid, 1, 7) as user_id, knotname, label_value + '_knot' as knot_class, ukl.labeltime labeltime
+                          FROM UserKnotLabel ukl JOIN Label ON ukl.labelid = Label.label_id
+                            WHERE ukl.labeltime > CONVERT(datetime, '2017-11-22 04:45:00', 120)
+                            AND ukl.labeltime < CONVERT(datetime, '2017-11-22 06:00:00', 120)
+                            ORDER BY user_id, ukl.labeltime"))
+
+
+```
+
+```{r initial_training_set}
+class_samples <- lapply(KNOT_CLASSES, function(kc) sample(which(labelled_knot_data_df$knot_class == kc), INITIAL_EXAMPLES_PER_CLASS))
+
+in_training_set <- (1:nrow(labelled_knot_data_df) %in% unlist(class_samples))
+
+initial_training_set <- labelled_knot_data_df[in_training_set,]
+TEST_SET <- labelled_knot_data_df[!in_training_set,]
+
+
+source("woodknots_active_learning_lib.R")
+
+```
+
+## "Official" results
+
+These are the results using the official labels for the new knots.
+```{r official_labels}
+official <- data.frame(
+	user_id=rep("correct", 6),
+	knotname=c("st1822_knot1.png", "st1747_knot1.png", "st1324_knot1.png", "st1171_knot0.png", "st1165_knot0.png", "st1112_knot0.png"), 
+	knot_class=c("sound_knot", "dry_knot", "dry_knot", "dry_knot", "sound_knot", NA),
+	stringsAsFactors=FALSE)
+
+official$labeltime <- Sys.time()
+
+official$knot_class <- factor(official$knot_class, levels=levels(user_knot_labels$knot_class))
+
+row.names(official) <- official$knotname
+
+official
+
+official_cases <- unlabelled_knot_data_df %>%
+                  filter(path %in% official$knotname)
+
+official_cases$knot_class <- official[official_cases$path, "knot_class"]
+
+new_training_set <- rbind(initial_training_set, official_cases)
+
+(official_results <- fit_and_evaluate_model(new_training_set, additional_cases_to_label=2)$performance)
+
+```
+
+# User labels
+
+These are the labels collected from workshop participants.
+
+```{r evaluate_user_labelled_datasets}
+
+user_id_vec <- setNames(nm=levels(user_knot_labels$user_id))
+
+user_results <- lapply(user_id_vec, function(userID){
+  user_labels <- user_knot_labels %>% 
+                    filter(user_id == userID) %>% 
+                    group_by(knotname) %>% 
+                    filter(labeltime==max(labeltime)) %>% # only keep the last label they chose
+                    as.data.frame
+  
+  row.names(user_labels) <- user_labels$knotname
+
+  user_cases <- unlabelled_knot_data_df %>%
+                    filter(path %in% user_labels$knotname)
+
+  user_cases$knot_class <- user_labels[user_cases$path, "knot_class"]
+
+  user_training_set <- rbind(initial_training_set, user_cases)
+
+  fit_and_evaluate_model(user_training_set, additional_cases_to_label=2)
+})
+
+
+(user_results_matrix <- user_results %>% sapply(function(ures) ures$performance) %>% t)
+
+official_results
+
+```
+
+User id `58afded` was a test where I just entered `encased_knot` for each knot. As expected, this led to poor performance.
+
+Note that `r 100 * sum(user_results_matrix[,"accuracy"] > official_results['accuracy'])/nrow(user_results_matrix)` percent of the participant labels led to models with better accuracy than the "official" labels. Part of the reason for this appears to be that the official images include many that are very low resolution. Since the workshop last week, I have removed the lowest resolution images, and the performance of the actively learned model has improved. Still, even with the poor quality images, active learning clearly pays off after a few rounds.
