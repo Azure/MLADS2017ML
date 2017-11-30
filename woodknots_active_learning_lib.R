@@ -30,7 +30,7 @@ get_new_pseudolabelled_sample <- function(labelled_filenames){
   pls
 }
 
-fit_and_evaluate_model <- function(candidate_cases, been_there = character(0),  # pseudolabeller, 
+fit_and_evaluate_model <- function(candidate_cases,  # pseudolabeller, 
                                    form=FORM, test_set=TEST_SET, 
                                    additional_cases_to_label=ADDITIONAL_CASES_TO_LABEL, 
                                    balance_classes=BALANCE_CLASSES){
@@ -49,25 +49,6 @@ fit_and_evaluate_model <- function(candidate_cases, been_there = character(0),  
     with(dframe, entropy(sound_knot, dry_knot))
   }
   
-  select_cases <- function(predictions_df, N=100){
-    
-    selected <- predictions_df %>%
-      mutate(entropy=entropy(sound_knot, dry_knot)) %>%
-      mutate(max_prob=apply(cbind(sound_knot, dry_knot, encased_knot), 1, max)) %>%
-      arrange(max_prob)  # -entropy
-    
-    if (balance_classes){
-      return(bind_rows(
-        selected[selected$pred_class=="sound_knot",][1:N,],
-        selected[selected$pred_class=="dry_knot",][1:N,],
-        selected[selected$pred_class=="encased_knot",][1:N,]
-      ))
-    } else{
-      return(head(selected, n=N))
-    }
-    
-  }
-  
   # NOTE: candidate_cases may include cases that are not of the classes we are modeling. 
   # We depend on labellers to remove these
   training_set_new <- candidate_cases %>% filter(knot_class %in% KNOT_CLASSES)
@@ -84,19 +65,11 @@ fit_and_evaluate_model <- function(candidate_cases, been_there = character(0),  
     
     roc_list <- compute_roc(pred_test)
     
-    still_unlabelled <- setdiff(unlabelled_knot_data_df$path, been_there)
-    unlabelled_df <- unlabelled_knot_data_df[unlabelled_knot_data_df$path %in% still_unlabelled,]
-    
-    pred_unlabelled <- rxPredict(fit_new, unlabelled_df, extraVarsToWrite=c("path"))
-    names(pred_unlabelled) <- c("path", "pred_class", "sound_knot", "dry_knot", "encased_knot")
-    
-    selected <- select_cases(pred_unlabelled, N=additional_cases_to_label)
-    
     results <- list(
       model=fit_new,
       tss=nrow(training_set_new),
       test_predictions=pred_test,
-      selected=selected, # unlabelled
+      # selected=selected, # unlabelled
       roc_list = roc_list,
       performance = c(accuracy=with(pred_test, sum(pred_class == knot_class)/length(knot_class)),
                       auc_sound = auc(roc_list[['sound']]),

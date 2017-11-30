@@ -166,18 +166,6 @@ PSEUDOLABELS_FILE &lt;- &quot;unlabelled_knot_info_area_small.csv&quot; # &quot;
 inputs &lt;- grep(&quot;^Feature&quot;, names(labelled_knot_data_df), value=TRUE)
 outcome &lt;- &quot;knot_class&quot;
 FORM &lt;- formula(paste(outcome, paste(inputs, collapse=&quot;+&quot;), sep=&quot;~&quot;))</code></pre>
-<div id="what-does-the-data-look-like" class="section level3">
-<h3>What does the data look like?</h3>
-<p>Here are the first five rows of the featurized labelled dataset:</p>
-<pre class="r"><code>labelled_knot_data_df[1:5, c(1, 2, 3, 4, 513, 514)]</code></pre>
-<pre><code>##           path Features.0 Features.1 Features.2 Features.511 knot_class
-## 1 knot0001.png  0.6699329 0.00000000  0.0000000  0.000000000   dry_knot
-## 2 knot0002.png  5.1276445 0.78482622  1.6800582  0.000000000   dry_knot
-## 3 knot0003.png  2.9920082 0.09008849  0.8088475  0.000000000   dry_knot
-## 4 knot0004.png  0.3703780 0.09706958  0.1429493  0.000000000   dry_knot
-## 5 knot0005.png  1.2323979 0.02114850  0.1124876  0.002296039   dry_knot</code></pre>
-<p>The first column is the file name, the last column is the label, and the 512 numeric columns in between are the features computed by the deep neural network. We will be using these numbers for classifying the images, not the images themselves.</p>
-</div>
 <div id="split-labelled-data-into-training-and-test-sets" class="section level3">
 <h3>Split labelled data into training and test sets</h3>
 <pre class="r"><code>class_samples &lt;- lapply(KNOT_CLASSES, function(kc) sample(which(labelled_knot_data_df$knot_class == kc), INITIAL_EXAMPLES_PER_CLASS))
@@ -205,7 +193,32 @@ table(initial_training_set$knot_class)</code></pre>
 
 pseudolabel_function &lt;- get_pseudolabelling_function(PSEUDOLABELS_FILE, KNOT_CLASSES)
 
-initial_model_results &lt;- fit_and_evaluate_model(initial_training_set)</code></pre>
+initial_model_results &lt;- fit_and_evaluate_model(initial_training_set)
+
+# still_unlabelled &lt;- setdiff(unlabelled_knot_data_df$path, been_there)
+# unlabelled_df &lt;- unlabelled_knot_data_df[unlabelled_knot_data_df$path %in% still_unlabelled,]
+
+select_cases &lt;- function(model, available_cases, N=ADDITIONAL_CASES_TO_LABEL, balance_classes=BALANCE_CLASSES){
+    predictions_df &lt;- rxPredict(model, available_cases, extraVarsToWrite=c(&quot;path&quot;))
+    names(predictions_df) &lt;- c(&quot;path&quot;, &quot;pred_class&quot;, &quot;sound_knot&quot;, &quot;dry_knot&quot;, &quot;encased_knot&quot;)
+    
+    selected &lt;- predictions_df %&gt;%
+      mutate(max_prob=apply(cbind(sound_knot, dry_knot, encased_knot), 1, max)) %&gt;%
+      arrange(max_prob)  # -entropy
+    
+    if (balance_classes){
+      return(bind_rows(
+        selected[selected$pred_class==&quot;sound_knot&quot;,][1:N,],
+        selected[selected$pred_class==&quot;dry_knot&quot;,][1:N,],
+        selected[selected$pred_class==&quot;encased_knot&quot;,][1:N,]
+      ))
+    } else{
+      return(head(selected, n=N))
+    }
+}   
+
+initial_model_results$selected &lt;- select_cases(initial_model_results$model, unlabelled_knot_data_df)</code></pre>
+<pre><code>## Elapsed time: 00:00:00.1647948</code></pre>
 </div>
 </div>
 <div id="results-for-initial-model" class="section level2">
@@ -248,13 +261,13 @@ mapply(plot, x=initial_model_results$roc_list, main=names(initial_model_results$
 <h2>Iterate modelling, case selection, and (pseudo) labelling</h2>
 <p>These are the cases selected by the initial model for labelling:</p>
 <pre class="r"><code>initial_model_results$selected</code></pre>
-<pre><code>##               path   pred_class sound_knot  dry_knot encased_knot  entropy
-## 1 st1568_knot2.png   sound_knot  0.3905281 0.3124349    0.2970370 1.574331
-## 2 st1454_knot1.png   sound_knot  0.4017069 0.3780740    0.2202190 1.539831
-## 3 st1116_knot0.png     dry_knot  0.3921232 0.3983140    0.2095627 1.531048
-## 4 st1176_knot1.png     dry_knot  0.3979095 0.4025992    0.1994913 1.521398
-## 5 st1487_knot1.png encased_knot  0.3379171 0.2467965    0.4152864 1.553622
-## 6 st1125_knot0.png encased_knot  0.1813806 0.3910638    0.4275556 1.500534
+<pre><code>##               path   pred_class sound_knot  dry_knot encased_knot
+## 1 st1568_knot2.png   sound_knot  0.3905281 0.3124349    0.2970370
+## 2 st1454_knot1.png   sound_knot  0.4017069 0.3780740    0.2202190
+## 3 st1116_knot0.png     dry_knot  0.3921232 0.3983140    0.2095627
+## 4 st1176_knot1.png     dry_knot  0.3979095 0.4025992    0.1994913
+## 5 st1487_knot1.png encased_knot  0.3379171 0.2467965    0.4152864
+## 6 st1125_knot0.png encased_knot  0.1813806 0.3910638    0.4275556
 ##    max_prob
 ## 1 0.3905281
 ## 2 0.4017069
@@ -269,7 +282,10 @@ current_training_set &lt;- rbind(initial_training_set, new_sample[names(initial_
 ALREADY_EVALUATED &lt;- character(0)
 
 iteration_results &lt;- lapply(1:NUM_ITERATIONS, function(i){
-  results &lt;- fit_and_evaluate_model(current_training_set, been_there=ALREADY_EVALUATED)
+  results &lt;- fit_and_evaluate_model(current_training_set)
+  
+  results$selected &lt;- select_cases(results$model, 
+                                   unlabelled_knot_data_df[(unlabelled_knot_data_df$path %in% setdiff(unlabelled_knot_data_df$path, ALREADY_EVALUATED)),])
 
   ALREADY_EVALUATED &lt;&lt;- c(ALREADY_EVALUATED, results$selected$path)
   results$selected_labelled &lt;- results$selected %&gt;% pseudolabel_function
@@ -279,16 +295,26 @@ iteration_results &lt;- lapply(1:NUM_ITERATIONS, function(i){
 
   results
 })</code></pre>
+<pre><code>## Elapsed time: 00:00:00.1784364
+## Elapsed time: 00:00:00.1647301
+## Elapsed time: 00:00:00.1633647
+## Elapsed time: 00:00:00.1756401
+## Elapsed time: 00:00:00.1586958
+## Elapsed time: 00:00:00.1719440
+## Elapsed time: 00:00:00.1676503
+## Elapsed time: 00:00:00.1633385
+## Elapsed time: 00:00:00.1675158
+## Elapsed time: 00:00:00.1681981</code></pre>
 <p>These are the cases selected at each iteration, together with the scores produced by the model for that iteration. The <code>knot_class</code> column was added by the pseudolabelling function.</p>
 <pre class="r"><code>lapply(iteration_results, function(ires) ires$selected_labelled)</code></pre>
 <pre><code>## [[1]]
-##               path   pred_class sound_knot  dry_knot encased_knot  entropy
-## 1 st1146_knot0.png   sound_knot  0.3885931 0.3084019    0.3030050 1.575258
-## 2 st1521_knot1.png   sound_knot  0.4077989 0.3714764    0.2207247 1.539542
-## 3 st1209_knot0.png     dry_knot  0.1899919 0.4212564    0.3887517 1.510521
-## 4 st1495_knot1.png     dry_knot  0.2506396 0.4306541    0.3187062 1.549542
-## 5 st1822_knot1.png encased_knot  0.2448014 0.3574488    0.3977498 1.556581
-## 6 st1085_knot0.png encased_knot  0.1924053 0.3888145    0.4187803 1.513269
+##               path   pred_class sound_knot  dry_knot encased_knot
+## 1 st1146_knot0.png   sound_knot  0.3885931 0.3084019    0.3030050
+## 2 st1521_knot1.png   sound_knot  0.4077989 0.3714764    0.2207247
+## 3 st1209_knot0.png     dry_knot  0.1899919 0.4212564    0.3887517
+## 4 st1495_knot1.png     dry_knot  0.2506396 0.4306541    0.3187062
+## 5 st1822_knot1.png encased_knot  0.2448014 0.3574488    0.3977498
+## 6 st1085_knot0.png encased_knot  0.1924053 0.3888145    0.4187803
 ##    max_prob   knot_class
 ## 1 0.3885931   sound_knot
 ## 2 0.4077989 encased_knot
@@ -298,13 +324,13 @@ iteration_results &lt;- lapply(1:NUM_ITERATIONS, function(i){
 ## 6 0.4187803     dry_knot
 ## 
 ## [[2]]
-##               path   pred_class sound_knot  dry_knot encased_knot  entropy
-## 1 st1767_knot2.png   sound_knot  0.3576357 0.3504651    0.2918993 1.579210
-## 2 st1219_knot0.png   sound_knot  0.4346182 0.3217348    0.2436470 1.545207
-## 3 st1058_knot0.png     dry_knot  0.3402660 0.3439968    0.3157372 1.583934
-## 4 st1291_knot1.png     dry_knot  0.2478649 0.3812667    0.3708683 1.559908
-## 5 st1506_knot1.png encased_knot  0.2553957 0.3673046    0.3772997 1.564226
-## 6 st1637_knot1.png encased_knot  0.1300864 0.4325099    0.4374038 1.427569
+##               path   pred_class sound_knot  dry_knot encased_knot
+## 1 st1767_knot2.png   sound_knot  0.3576357 0.3504651    0.2918993
+## 2 st1219_knot0.png   sound_knot  0.4346182 0.3217348    0.2436470
+## 3 st1058_knot0.png     dry_knot  0.3402660 0.3439968    0.3157372
+## 4 st1291_knot1.png     dry_knot  0.2478649 0.3812667    0.3708683
+## 5 st1506_knot1.png encased_knot  0.2553957 0.3673046    0.3772997
+## 6 st1637_knot1.png encased_knot  0.1300864 0.4325099    0.4374038
 ##    max_prob knot_class
 ## 1 0.3576357       &lt;NA&gt;
 ## 2 0.4346182   dry_knot
@@ -321,13 +347,13 @@ iteration_results &lt;- lapply(1:NUM_ITERATIONS, function(i){
 ## 4 st1221_knot0.png     dry_knot 0.49049142 0.50035155  0.009157134
 ## 5 st1543_knot1.png encased_knot 0.45089707 0.01931836  0.529784560
 ## 6 st1653_knot1.png encased_knot 0.05422007 0.40336037  0.542419493
-##    entropy  max_prob knot_class
-## 1 1.512867 0.4090079   dry_knot
-## 2 1.558212 0.4091046 sound_knot
-## 3 1.127011 0.4931651 sound_knot
-## 4 1.065924 0.5003515 sound_knot
-## 5 1.113695 0.5297846 sound_knot
-## 6 1.235038 0.5424195       &lt;NA&gt;
+##    max_prob knot_class
+## 1 0.4090079   dry_knot
+## 2 0.4091046 sound_knot
+## 3 0.4931651 sound_knot
+## 4 0.5003515 sound_knot
+## 5 0.5297846 sound_knot
+## 6 0.5424195       &lt;NA&gt;
 ## 
 ## [[4]]
 ##               path   pred_class  sound_knot  dry_knot encased_knot
@@ -337,13 +363,13 @@ iteration_results &lt;- lapply(1:NUM_ITERATIONS, function(i){
 ## 4 st1544_knot4.png     dry_knot 0.495535880 0.5014452  0.003018956
 ## 5 st1373_knot1.png encased_knot 0.003393061 0.4483246  0.548282266
 ## 6 st1535_knot1.png encased_knot 0.091628648 0.3349748  0.573396504
-##    entropy  max_prob   knot_class
-## 1 1.449111 0.4470746         &lt;NA&gt;
-## 2 1.441062 0.4697994 encased_knot
-## 3 1.307047 0.5010213     dry_knot
-## 4 1.026578 0.5014452   sound_knot
-## 5 1.022084 0.5482823         &lt;NA&gt;
-## 6 1.304580 0.5733965     dry_knot
+##    max_prob   knot_class
+## 1 0.4470746         &lt;NA&gt;
+## 2 0.4697994 encased_knot
+## 3 0.5010213     dry_knot
+## 4 0.5014452   sound_knot
+## 5 0.5482823         &lt;NA&gt;
+## 6 0.5733965     dry_knot
 ## 
 ## [[5]]
 ##               path   pred_class sound_knot   dry_knot encased_knot
@@ -353,13 +379,13 @@ iteration_results &lt;- lapply(1:NUM_ITERATIONS, function(i){
 ## 4 st1276_knot2.png     dry_knot 0.48605344 0.48980668   0.02413998
 ## 5 st1662_knot1.png encased_knot 0.01580545 0.49005401   0.49414054
 ## 6 st1061_knot1.png encased_knot 0.34594384 0.11512259   0.53893358
-##    entropy  max_prob knot_class
-## 1 1.506644 0.4713991   dry_knot
-## 2 1.090376 0.5105429   dry_knot
-## 3 1.577323 0.3777265   dry_knot
-## 4 1.139942 0.4898067 sound_knot
-## 5 1.101374 0.4941405   dry_knot
-## 6 1.369447 0.5389336   dry_knot
+##    max_prob knot_class
+## 1 0.4713991   dry_knot
+## 2 0.5105429   dry_knot
+## 3 0.3777265   dry_knot
+## 4 0.4898067 sound_knot
+## 5 0.4941405   dry_knot
+## 6 0.5389336   dry_knot
 ## 
 ## [[6]]
 ##               path   pred_class   sound_knot    dry_knot encased_knot
@@ -369,13 +395,13 @@ iteration_results &lt;- lapply(1:NUM_ITERATIONS, function(i){
 ## 4 st1790_knot1.png     dry_knot 0.0002114127 0.530478656  0.469309807
 ## 5 st1718_knot1.png encased_knot 0.2710652053 0.187548339  0.541386485
 ## 6 st1613_knot2.png encased_knot 0.4175358117 0.001048357  0.581416011
-##     entropy  max_prob   knot_class
-## 1 1.4575964 0.4997526   sound_knot
-## 2 1.0238438 0.5075784   sound_knot
-## 3 1.0814665 0.5026010 encased_knot
-## 4 0.9999732 0.5304787 encased_knot
-## 5 1.4426332 0.5413865 encased_knot
-## 6 0.9913583 0.5814160   sound_knot
+##    max_prob   knot_class
+## 1 0.4997526   sound_knot
+## 2 0.5075784   sound_knot
+## 3 0.5026010 encased_knot
+## 4 0.5304787 encased_knot
+## 5 0.5413865 encased_knot
+## 6 0.5814160   sound_knot
 ## 
 ## [[7]]
 ##               path   pred_class sound_knot    dry_knot encased_knot
@@ -385,13 +411,13 @@ iteration_results &lt;- lapply(1:NUM_ITERATIONS, function(i){
 ## 4 st1306_knot1.png     dry_knot  0.4617696 0.521990359  0.016239954
 ## 5 st1451_knot1.png encased_knot  0.2562693 0.212281734  0.531448901
 ## 6 st1061_knot3.png encased_knot  0.4549123 0.006069067  0.539018571
-##    entropy  max_prob   knot_class
-## 1 1.043785 0.5027352   sound_knot
-## 2 1.153880 0.5375186 encased_knot
-## 3 1.068054 0.5199681     dry_knot
-## 4 1.100873 0.5219904     dry_knot
-## 5 1.462712 0.5314489   sound_knot
-## 6 1.042215 0.5390186         &lt;NA&gt;
+##    max_prob   knot_class
+## 1 0.5027352   sound_knot
+## 2 0.5375186 encased_knot
+## 3 0.5199681     dry_knot
+## 4 0.5219904     dry_knot
+## 5 0.5314489   sound_knot
+## 6 0.5390186         &lt;NA&gt;
 ## 
 ## [[8]]
 ##               path   pred_class  sound_knot  dry_knot encased_knot
@@ -401,13 +427,13 @@ iteration_results &lt;- lapply(1:NUM_ITERATIONS, function(i){
 ## 4 st1468_knot1.png     dry_knot 0.007435076 0.5675560 0.4250088930
 ## 5 st1796_knot1.png encased_knot 0.010340001 0.4362043 0.5534555912
 ## 6 st1504_knot1.png encased_knot 0.014664603 0.4288238 0.5565116405
-##     entropy  max_prob   knot_class
-## 1 1.5764240 0.3843235         &lt;NA&gt;
-## 2 1.0230872 0.5522031   sound_knot
-## 3 0.9984266 0.5493665   sound_knot
-## 4 1.0410096 0.5675560     dry_knot
-## 5 1.0626546 0.5534556 encased_knot
-## 6 1.0836961 0.5565116     dry_knot
+##    max_prob   knot_class
+## 1 0.3843235         &lt;NA&gt;
+## 2 0.5522031   sound_knot
+## 3 0.5493665   sound_knot
+## 4 0.5675560     dry_knot
+## 5 0.5534556 encased_knot
+## 6 0.5565116     dry_knot
 ## 
 ## [[9]]
 ##               path   pred_class   sound_knot  dry_knot encased_knot
@@ -417,13 +443,13 @@ iteration_results &lt;- lapply(1:NUM_ITERATIONS, function(i){
 ## 4 st1571_knot1.png     dry_knot 0.4980646968 0.4986956 0.0032395858
 ## 5 st1141_knot1.png encased_knot 0.0004791422 0.2802797 0.7192413211
 ## 6 st1292_knot1.png encased_knot 0.0003061573 0.2229810 0.7767128348
-##     entropy  max_prob   knot_class
-## 1 1.0060236 0.5352515   sound_knot
-## 2 1.1154499 0.5363867   sound_knot
-## 3 1.3527048 0.4945643   sound_knot
-## 4 1.0282181 0.4986956     dry_knot
-## 5 0.8615789 0.7192413 encased_knot
-## 6 0.7694775 0.7767128 encased_knot
+##    max_prob   knot_class
+## 1 0.5352515   sound_knot
+## 2 0.5363867   sound_knot
+## 3 0.4945643   sound_knot
+## 4 0.4986956     dry_knot
+## 5 0.7192413 encased_knot
+## 6 0.7767128 encased_knot
 ## 
 ## [[10]]
 ##               path   pred_class   sound_knot   dry_knot encased_knot
@@ -433,13 +459,13 @@ iteration_results &lt;- lapply(1:NUM_ITERATIONS, function(i){
 ## 4 st1511_knot1.png     dry_knot 0.4614490569 0.53104991 0.0075008688
 ## 5 st1293_knot1.png encased_knot 0.0007448763 0.09164993 0.9076052308
 ## 6 st1218_knot0.png encased_knot 0.0276888106 0.01202453 0.9602865577
-##     entropy  max_prob   knot_class
-## 1 1.0212920 0.5520083   sound_knot
-## 2 1.1172113 0.5839668 encased_knot
-## 3 1.0071842 0.5043230     dry_knot
-## 4 1.0527038 0.5310499     dry_knot
-## 5 0.4506639 0.9076052 encased_knot
-## 6 0.2761094 0.9602866 encased_knot</code></pre>
+##    max_prob   knot_class
+## 1 0.5520083   sound_knot
+## 2 0.5839668 encased_knot
+## 3 0.5043230     dry_knot
+## 4 0.5310499     dry_knot
+## 5 0.9076052 encased_knot
+## 6 0.9602866 encased_knot</code></pre>
 <p>This shows the change in the metrics, with each row showing an iteration. The ‘negentropy’ metric is the negative entropy across all three class probabilities.</p>
 <pre class="r"><code>do.call(&quot;rbind&quot;, lapply(iteration_results, function(ires) ires$performance))</code></pre>
 <pre><code>##        accuracy auc_sound   auc_dry auc_encased negentropy

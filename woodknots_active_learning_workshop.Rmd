@@ -59,16 +59,6 @@ FORM <- formula(paste(outcome, paste(inputs, collapse="+"), sep="~"))
 
 ```
 
-### What does the data look like?
-
-Here are the first five rows of the featurized labelled dataset:
-
-```{r example_of_data}
-labelled_knot_data_df[1:5, c(1, 2, 3, 4, 513, 514)]
-
-```
-
-The first column is the file name, the last column is the label, and the 512 numeric columns in between are the features computed by the deep neural network. We will be using these numbers for classifying the images, not the images themselves.
 
 ### Split labelled data into training and test sets
 
@@ -100,6 +90,30 @@ source("woodknots_active_learning_lib.R")
 pseudolabel_function <- get_pseudolabelling_function(PSEUDOLABELS_FILE, KNOT_CLASSES)
 
 initial_model_results <- fit_and_evaluate_model(initial_training_set)
+
+# still_unlabelled <- setdiff(unlabelled_knot_data_df$path, been_there)
+# unlabelled_df <- unlabelled_knot_data_df[unlabelled_knot_data_df$path %in% still_unlabelled,]
+
+select_cases <- function(model, available_cases, N=ADDITIONAL_CASES_TO_LABEL, balance_classes=BALANCE_CLASSES){
+    predictions_df <- rxPredict(model, available_cases, extraVarsToWrite=c("path"))
+    names(predictions_df) <- c("path", "pred_class", "sound_knot", "dry_knot", "encased_knot")
+    
+    selected <- predictions_df %>%
+      mutate(max_prob=apply(cbind(sound_knot, dry_knot, encased_knot), 1, max)) %>%
+      arrange(max_prob)  # -entropy
+    
+    if (balance_classes){
+      return(bind_rows(
+        selected[selected$pred_class=="sound_knot",][1:N,],
+        selected[selected$pred_class=="dry_knot",][1:N,],
+        selected[selected$pred_class=="encased_knot",][1:N,]
+      ))
+    } else{
+      return(head(selected, n=N))
+    }
+}   
+
+initial_model_results$selected <- select_cases(initial_model_results$model, unlabelled_knot_data_df)
 
 ```
 
@@ -166,7 +180,10 @@ current_training_set <- rbind(initial_training_set, new_sample[names(initial_tra
 ALREADY_EVALUATED <- character(0)
 
 iteration_results <- lapply(1:NUM_ITERATIONS, function(i){
-  results <- fit_and_evaluate_model(current_training_set, been_there=ALREADY_EVALUATED)
+  results <- fit_and_evaluate_model(current_training_set)
+  
+  results$selected <- select_cases(results$model, 
+                                   unlabelled_knot_data_df[(unlabelled_knot_data_df$path %in% setdiff(unlabelled_knot_data_df$path, ALREADY_EVALUATED)),])
 
   ALREADY_EVALUATED <<- c(ALREADY_EVALUATED, results$selected$path)
   results$selected_labelled <- results$selected %>% pseudolabel_function

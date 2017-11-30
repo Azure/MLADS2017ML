@@ -4,6 +4,9 @@ secret.R
 # knitr files directories
 /*_files/
 
+# old files
+*_OLD*
+
 # History files
 .Rhistory
 .Rapp.history
