@@ -162,3 +162,12 @@ plot_class_separation <- function(predictions, previous=NULL, ...){
     
   })
 }
+
+
+plot_class_histograms <- function(pred){
+  pred %>% 
+    gather(category, score, -c(path, knot_class, pred_class)) %>%
+    mutate(category = factor(paste0(category, "_score"), levels=paste0(levels(pred$knot_class), "_score"))) %>%
+    ggplot(aes(x=score, fill=knot_class)) + geom_histogram(bins=50) + facet_grid( category ~ .)
+}
+

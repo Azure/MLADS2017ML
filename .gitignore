@@ -1,6 +1,9 @@
 # Secret file (DB passwords, etc.)
 secret.R
 
+# knitr files directories
+/*_files/
+
 # History files
 .Rhistory
 .Rapp.history

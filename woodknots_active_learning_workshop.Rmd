@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, cache=FALSE, message=FALSE, fig.height=7.5)
+knitr::opts_chunk$set(echo = TRUE, cache=TRUE, message=FALSE, fig.height=7.5)
 rxOptions(reportProgress=0)
 ```
 
@@ -105,6 +105,15 @@ initial_model_results <- fit_and_evaluate_model(initial_training_set)
 
 ## Results for initial model
 
+
+### ROC curves
+
+```{r roc_curves}
+# op <- par(mfrow=c(3,1), no.readonly = TRUE)
+mapply(plot, x=initial_model_results$roc_list, main=names(initial_model_results$roc_list), print.auc=TRUE) %>% invisible
+# par(op)
+```
+
 #### Confusion matrix
 
 ```{r initial_model_confusion}
@@ -124,23 +133,8 @@ initial_model_results$performance
 
 ```{r class_score_histograms}
 
-plot_class_histograms <- function(pred){
-  pred %>% 
-    gather(category, score, -c(path, knot_class, pred_class)) %>%
-    ggplot(aes(x=score, col=knot_class)) + geom_histogram(bins=50) + facet_grid( knot_class ~ .)
-}
-
-
 plot_class_histograms(initial_model_results$test_predictions)
 
-```
-
-### ROC curves
-
-```{r roc_curves}
-# op <- par(mfrow=c(3,1), no.readonly = TRUE)
-mapply(plot, x=initial_model_results$roc_list, main=names(initial_model_results$roc_list), print.auc=TRUE) %>% invisible
-# par(op)
 ```
 
 ### Plot of test cases on entropy surface
@@ -155,6 +149,13 @@ plot_class_separation(initial_model_results$test_predictions)
 ```
 
 ## Iterate modelling, case selection, and (pseudo) labelling
+
+These are the cases selected by the initial model for labelling:
+
+```{r initial_model_results_selected}
+initial_model_results$selected
+
+```
 
 ```{r iterate}
 
@@ -177,6 +178,11 @@ iteration_results <- lapply(1:NUM_ITERATIONS, function(i){
 })
 ```
 
+These are the cases selected at each iteration, together with the scores produced by the model for that iteration. The `knot_class` column was added by the pseudolabelling function.
+
+```{r iteration_results_selected}
+lapply(iteration_results, function(ires) ires$selected_labelled)
+```
 
 This shows the change in the metrics, with each row showing an iteration. The 'negentropy' metric is the negative entropy across all three class probabilities.
 
@@ -197,21 +203,25 @@ plot_roc_history("encased", initial_model_results, iteration_results)
 ```
 
 
-
 ### Final model results
 
 ```{r final_model}
 final_model_results <- iteration_results[[NUM_ITERATIONS]]
 ```
 
+### Confusion Matrix
+
 ```{r final_model_confusion_matrix}
 final_model_results$confusion
 ```
 
-### Entropy surface plot
+### Performance summary
 
-```{r classifier_evolution}
-plot_class_separation(final_model_results$test_predictions, main="Final")
+Summary of performance using cases selected with active learning:
+
+```{r summary_of_preformance_using_selected_cases}
+
+(selected_sample_results <- final_model_results$performance)
 ```
 
 ### Histograms of class scores for final model
@@ -222,12 +232,10 @@ plot_class_histograms(final_model_results$test_predictions)
 
 ```
 
+### Entropy surface plot
 
-Summary of performance using cases selected with active learning:
-
-```{r summary_of_preformance_using_selected_cases}
-
-(selected_sample_results <- final_model_results$performance)
+```{r classifier_evolution}
+plot_class_separation(final_model_results$test_predictions, main="Final")
 ```
 
 
@@ -283,6 +291,8 @@ full_model_results <- fit_and_evaluate_model(training_set_full)
 full_model_results$confusion
 
 full_model_results$performance
+
+plot_class_histograms(full_model_results$test_predictions)
 
 plot_class_separation(full_model_results$test_predictions)
 
