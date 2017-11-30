@@ -39,7 +39,7 @@ ADDITIONAL_CASES_TO_LABEL <- 2  # cases per class if BALANCE_CLASSES is TRUE
 
 NUM_ITERATIONS <- 10
 
-MONTE_CARLO_SAMPLES <- 10
+MONTE_CARLO_SAMPLES <- 100
 
 # This order determines the order of factor levels
 KNOT_CLASSES <- setNames(nm=c("sound_knot", "dry_knot", "encased_knot"))
@@ -267,9 +267,6 @@ mapply (
   function(metric) sum(random_sample_results[metric,] >= selected_sample_results[[metric]]), 
   row.names(random_sample_results)
 ) / MONTE_CARLO_SAMPLES
-
-# combine AUCs
-sum(colMeans(random_sample_results[2:4,]) >= mean(unlist(selected_sample_results[2:4]))) / MONTE_CARLO_SAMPLES
 
 
 ```

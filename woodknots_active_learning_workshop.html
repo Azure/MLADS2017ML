@@ -150,7 +150,7 @@ ADDITIONAL_CASES_TO_LABEL &lt;- 2  # cases per class if BALANCE_CLASSES is TRUE
 
 NUM_ITERATIONS &lt;- 10
 
-MONTE_CARLO_SAMPLES &lt;- 10
+MONTE_CARLO_SAMPLES &lt;- 100
 
 # This order determines the order of factor levels
 KNOT_CLASSES &lt;- setNames(nm=c(&quot;sound_knot&quot;, &quot;dry_knot&quot;, &quot;encased_knot&quot;))
@@ -320,7 +320,7 @@ iteration_results &lt;- lapply(1:NUM_ITERATIONS, function(i){
 </div>
 <div id="monte-carlo-estimation-of-p-values" class="section level2">
 <h2>Monte Carlo Estimation of P-values</h2>
-<p>What is the probability that a set of randomly chosen cases would improve the performance of the model as much as the selected cases did? We’ll add the same number of examples to the training set, except that now they will be randomly chosen. We’ll repeat this sampling, training, and evaluation process 10 times, and see how many of those times we beat the performance of the selected cases.</p>
+<p>What is the probability that a set of randomly chosen cases would improve the performance of the model as much as the selected cases did? We’ll add the same number of examples to the training set, except that now they will be randomly chosen. We’ll repeat this sampling, training, and evaluation process 100 times, and see how many of those times we beat the performance of the selected cases.</p>
 <pre class="r"><code>(N &lt;- iteration_results[[NUM_ITERATIONS]]$tss - nrow(initial_training_set))</code></pre>
 <pre><code>## [1] 54</code></pre>
 <pre class="r"><code>available_cases &lt;- pseudolabel_function(unlabelled_knot_data_df)
@@ -335,16 +335,13 @@ random_sample_results &lt;- sapply(1:MONTE_CARLO_SAMPLES, function(i){
 <pre class="r"><code>saveRDS(random_sample_results, sprintf(&quot;random_sample_results_iteration%02d.Rds&quot;, NUM_ITERATIONS))</code></pre>
 <div id="p-values" class="section level3">
 <h3>P-values</h3>
-<p>This table shows the number of times out of 10 tries that the randomly selected cases equalled or exceeded theperformance of the actively learned cases for each metric. These numbers are estimated P-values in percent.</p>
+<p>This table shows the number of times out of 100 tries that the randomly selected cases equalled or exceeded theperformance of the actively learned cases for each metric. These numbers are estimated P-values in percent.</p>
 <pre class="r"><code>mapply ( 
   function(metric) sum(random_sample_results[metric,] &gt;= selected_sample_results[[metric]]), 
   row.names(random_sample_results)
 ) / MONTE_CARLO_SAMPLES</code></pre>
 <pre><code>##    accuracy   auc_sound     auc_dry auc_encased  negentropy 
-##         0.0         0.3         0.0         0.4         0.0</code></pre>
-<pre class="r"><code># combine AUCs
-sum(colMeans(random_sample_results[2:4,]) &gt;= mean(unlist(selected_sample_results[2:4]))) / MONTE_CARLO_SAMPLES</code></pre>
-<pre><code>## [1] 0.3</code></pre>
+##        0.00        0.20        0.05        0.39        0.00</code></pre>
 </div>
 </div>
 <div id="model-trained-with-all-available-unlabelled-cases" class="section level2">
