@@ -115,7 +115,7 @@ plot_class_separation <- function(predictions, previous=NULL, ...){
         xlim=c(-0.05, 1.05), ylim=c(-0.05, 1.05),
         ...)
   
-  point_colors <- c("blue", "red", "darkgreen")
+  point_colors <- c("red", "darkgreen","blue")
   point_symbols <- c(1, 2, 4)
   with(predictions, {
     points(sound_knot, dry_knot, 

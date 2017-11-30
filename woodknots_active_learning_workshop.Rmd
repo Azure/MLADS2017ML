@@ -177,13 +177,13 @@ new_sample <- initial_model_results$selected %>% pseudolabel_function %>% get_ne
 
 current_training_set <- rbind(initial_training_set, new_sample[names(initial_training_set)])
 
-ALREADY_EVALUATED <- character(0)
+ALREADY_EVALUATED <- initial_model_results$selected$path
 
 iteration_results <- lapply(1:NUM_ITERATIONS, function(i){
   results <- fit_and_evaluate_model(current_training_set)
   
-  results$selected <- select_cases(results$model, 
-                                   unlabelled_knot_data_df[(unlabelled_knot_data_df$path %in% setdiff(unlabelled_knot_data_df$path, ALREADY_EVALUATED)),])
+  candidate_cases <- unlabelled_knot_data_df[(unlabelled_knot_data_df$path %in% setdiff(unlabelled_knot_data_df$path, ALREADY_EVALUATED)),]
+  results$selected <- select_cases(results$model, candidate_cases)
 
   ALREADY_EVALUATED <<- c(ALREADY_EVALUATED, results$selected$path)
   results$selected_labelled <- results$selected %>% pseudolabel_function
