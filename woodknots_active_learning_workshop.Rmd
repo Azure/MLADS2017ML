@@ -76,6 +76,11 @@ table(initial_training_set$knot_class)
 
 table(initial_training_set$knot_class)/nrow(initial_training_set)
 ```
+```{r save_training_and_test_sets}
+saveRDS(TEST_SET, "test_set.Rds")
+saveRDS(initial_training_set, "initial_training_set.Rds")
+
+```
 
 
 ## Initial model for knot classes

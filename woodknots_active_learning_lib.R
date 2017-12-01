@@ -31,9 +31,7 @@ get_new_pseudolabelled_sample <- function(labelled_filenames){
 }
 
 fit_and_evaluate_model <- function(candidate_cases,  # pseudolabeller, 
-                                   form=FORM, test_set=TEST_SET, 
-                                   additional_cases_to_label=ADDITIONAL_CASES_TO_LABEL, 
-                                   balance_classes=BALANCE_CLASSES){
+                                   form=FORM, test_set=TEST_SET){
   
   compute_roc <- function(dframe){
     library(pROC)

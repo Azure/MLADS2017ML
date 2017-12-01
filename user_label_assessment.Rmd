@@ -35,14 +35,15 @@ LABELLED_FEATURIZED_DATA <- "labelled_knots_featurized_resnet18.Rds"
 UNLABELLED_FEATURIZED_DATA <- "unlabelled_knots_featurized_resnet18.Rds"
 
 unlabelled_knot_data_df <- readRDS(UNLABELLED_FEATURIZED_DATA)
-labelled_knot_data_df <- readRDS(LABELLED_FEATURIZED_DATA)
+# labelled_knot_data_df <- readRDS(LABELLED_FEATURIZED_DATA)
 
-inputs <- grep("^Feature", names(labelled_knot_data_df), value=TRUE)
+TEST_SET <- readRDS("test_set.Rds")
+INITIAL_TRAINING_SET <- readRDS("initial_training_set.Rds")
+
+inputs <- grep("^Feature", names(INITIAL_TRAINING_SET), value=TRUE)
 outcome <- "knot_class"
 FORM <- formula(paste(outcome, paste(inputs, collapse="+"), sep="~"))
 
-ADDITIONAL_CASES_TO_LABEL <- 0 
-BALANCE_CLASSES <- TRUE
 ```
 
 ```{r user_label_data}
@@ -75,19 +76,19 @@ sql <- function(q) sqlQuery(dbhandle, q) # same syntax as sqldf
 (user_knot_labels <- sql("SELECT substring(userid, 1, 7) as user_id, knotname, label_value + '_knot' as knot_class, ukl.labeltime labeltime
                           FROM UserKnotLabel ukl JOIN Label ON ukl.labelid = Label.label_id
                             WHERE ukl.labeltime > CONVERT(datetime, '2017-11-22 04:45:00', 120)
-                            AND ukl.labeltime < CONVERT(datetime, '2017-11-22 06:00:00', 120)
+                            -- AND ukl.labeltime < CONVERT(datetime, '2017-11-22 06:00:00', 120)
                             ORDER BY user_id, ukl.labeltime"))
 
 
 ```
 
-```{r initial_training_set}
-class_samples <- lapply(KNOT_CLASSES, function(kc) sample(which(labelled_knot_data_df$knot_class == kc), INITIAL_EXAMPLES_PER_CLASS))
-
-in_training_set <- (1:nrow(labelled_knot_data_df) %in% unlist(class_samples))
-
-initial_training_set <- labelled_knot_data_df[in_training_set,]
-TEST_SET <- labelled_knot_data_df[!in_training_set,]
+```{r source_library_code}
+# class_samples <- lapply(KNOT_CLASSES, function(kc) sample(which(labelled_knot_data_df$knot_class == kc), INITIAL_EXAMPLES_PER_CLASS))
+# 
+# in_training_set <- (1:nrow(labelled_knot_data_df) %in% unlist(class_samples))
+# 
+# initial_training_set <- labelled_knot_data_df[in_training_set,]
+# TEST_SET <- labelled_knot_data_df[!in_training_set,]
 
 
 source("woodknots_active_learning_lib.R")
@@ -117,9 +118,9 @@ official_cases <- unlabelled_knot_data_df %>%
 
 official_cases$knot_class <- official[official_cases$path, "knot_class"]
 
-new_training_set <- rbind(initial_training_set, official_cases)
+new_training_set <- rbind(INITIAL_TRAINING_SET, official_cases)
 
-(official_results <- fit_and_evaluate_model(new_training_set, additional_cases_to_label=2)$performance)
+(official_results <- fit_and_evaluate_model(new_training_set)$performance)
 
 ```
 
@@ -145,9 +146,9 @@ user_results <- lapply(user_id_vec, function(userID){
 
   user_cases$knot_class <- user_labels[user_cases$path, "knot_class"]
 
-  user_training_set <- rbind(initial_training_set, user_cases)
+  user_training_set <- rbind(INITIAL_TRAINING_SET, user_cases)
 
-  fit_and_evaluate_model(user_training_set, additional_cases_to_label=2)
+  fit_and_evaluate_model(user_training_set)
 })
 
 

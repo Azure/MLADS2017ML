@@ -148,14 +148,14 @@ LABELLED_FEATURIZED_DATA &lt;- &quot;labelled_knots_featurized_resnet18.Rds&quot
 UNLABELLED_FEATURIZED_DATA &lt;- &quot;unlabelled_knots_featurized_resnet18.Rds&quot;
 
 unlabelled_knot_data_df &lt;- readRDS(UNLABELLED_FEATURIZED_DATA)
-labelled_knot_data_df &lt;- readRDS(LABELLED_FEATURIZED_DATA)
+# labelled_knot_data_df &lt;- readRDS(LABELLED_FEATURIZED_DATA)
 
-inputs &lt;- grep(&quot;^Feature&quot;, names(labelled_knot_data_df), value=TRUE)
+TEST_SET &lt;- readRDS(&quot;test_set.Rds&quot;)
+INITIAL_TRAINING_SET &lt;- readRDS(&quot;initial_training_set.Rds&quot;)
+
+inputs &lt;- grep(&quot;^Feature&quot;, names(INITIAL_TRAINING_SET), value=TRUE)
 outcome &lt;- &quot;knot_class&quot;
-FORM &lt;- formula(paste(outcome, paste(inputs, collapse=&quot;+&quot;), sep=&quot;~&quot;))
-
-ADDITIONAL_CASES_TO_LABEL &lt;- 0 
-BALANCE_CLASSES &lt;- TRUE</code></pre>
+FORM &lt;- formula(paste(outcome, paste(inputs, collapse=&quot;+&quot;), sep=&quot;~&quot;))</code></pre>
 <pre class="r"><code>source(&quot;secret.R&quot;)
 
 conn_info &lt;- list(
@@ -184,7 +184,7 @@ sql &lt;- function(q) sqlQuery(dbhandle, q) # same syntax as sqldf
 (user_knot_labels &lt;- sql(&quot;SELECT substring(userid, 1, 7) as user_id, knotname, label_value + '_knot' as knot_class, ukl.labeltime labeltime
                           FROM UserKnotLabel ukl JOIN Label ON ukl.labelid = Label.label_id
                             WHERE ukl.labeltime &gt; CONVERT(datetime, '2017-11-22 04:45:00', 120)
-                            AND ukl.labeltime &lt; CONVERT(datetime, '2017-11-22 06:00:00', 120)
+                            -- AND ukl.labeltime &lt; CONVERT(datetime, '2017-11-22 06:00:00', 120)
                             ORDER BY user_id, ukl.labeltime&quot;))</code></pre>
 <pre><code>##    user_id         knotname   knot_class           labeltime
 ## 1  097d11c st1822_knot1.png   sound_knot 2017-11-22 05:01:32
@@ -192,43 +192,58 @@ sql &lt;- function(q) sqlQuery(dbhandle, q) # same syntax as sqldf
 ## 3  097d11c st1324_knot1.png   sound_knot 2017-11-22 05:01:46
 ## 4  097d11c st1171_knot0.png encased_knot 2017-11-22 05:01:49
 ## 5  097d11c st1165_knot0.png   sound_knot 2017-11-22 05:01:53
-## 6  3dafaa1 st1822_knot1.png   sound_knot 2017-11-22 04:57:56
-## 7  3dafaa1 st1747_knot1.png     dry_knot 2017-11-22 04:57:58
-## 8  3dafaa1 st1324_knot1.png encased_knot 2017-11-22 04:58:02
-## 9  3dafaa1 st1171_knot0.png encased_knot 2017-11-22 04:58:10
-## 10 3dafaa1 st1165_knot0.png   sound_knot 2017-11-22 04:58:12
-## 11 58afded st1822_knot1.png encased_knot 2017-11-22 04:55:41
-## 12 58afded st1747_knot1.png encased_knot 2017-11-22 04:55:42
-## 13 58afded st1324_knot1.png encased_knot 2017-11-22 04:55:43
-## 14 58afded st1171_knot0.png encased_knot 2017-11-22 04:55:46
-## 15 58afded st1165_knot0.png encased_knot 2017-11-22 04:55:47
-## 16 58afded st1112_knot0.png encased_knot 2017-11-22 04:55:49
-## 17 6c766a0 st1822_knot1.png   sound_knot 2017-11-22 04:54:07
-## 18 6c766a0 st1747_knot1.png     dry_knot 2017-11-22 04:54:11
-## 19 6c766a0 st1165_knot0.png   sound_knot 2017-11-22 04:54:27
-## 20 6c766a0 st1171_knot0.png     dry_knot 2017-11-22 04:54:37
-## 21 8b8f578 st1822_knot1.png   sound_knot 2017-11-22 04:55:52
-## 22 8b8f578 st1747_knot1.png     dry_knot 2017-11-22 04:55:56
-## 23 8b8f578 st1324_knot1.png encased_knot 2017-11-22 04:55:58
-## 24 8b8f578 st1171_knot0.png encased_knot 2017-11-22 04:56:09
-## 25 8b8f578 st1165_knot0.png   sound_knot 2017-11-22 04:56:13
-## 26 8c6829d st1747_knot1.png encased_knot 2017-11-22 05:02:47
-## 27 a5de636 st1822_knot1.png   sound_knot 2017-11-22 04:55:50
-## 28 a5de636 st1747_knot1.png     dry_knot 2017-11-22 04:55:53
-## 29 a5de636 st1171_knot0.png     dry_knot 2017-11-22 04:56:02
-## 30 a5de636 st1165_knot0.png   sound_knot 2017-11-22 04:56:04
-## 31 a5de636 st1171_knot0.png encased_knot 2017-11-22 04:56:42
-## 32 a5de636 st1171_knot0.png     dry_knot 2017-11-22 04:56:51
-## 33 e7a838f st1822_knot1.png   sound_knot 2017-11-22 04:55:37
-## 34 e7a838f st1747_knot1.png     dry_knot 2017-11-22 04:55:41
-## 35 e7a838f st1171_knot0.png encased_knot 2017-11-22 04:55:50
-## 36 e7a838f st1165_knot0.png   sound_knot 2017-11-22 04:55:52</code></pre>
-<pre class="r"><code>class_samples &lt;- lapply(KNOT_CLASSES, function(kc) sample(which(labelled_knot_data_df$knot_class == kc), INITIAL_EXAMPLES_PER_CLASS))
-
-in_training_set &lt;- (1:nrow(labelled_knot_data_df) %in% unlist(class_samples))
-
-initial_training_set &lt;- labelled_knot_data_df[in_training_set,]
-TEST_SET &lt;- labelled_knot_data_df[!in_training_set,]
+## 6  2321bcd st1822_knot1.png   sound_knot 2017-12-01 02:32:37
+## 7  2321bcd st1747_knot1.png     dry_knot 2017-12-01 02:32:38
+## 8  2321bcd st1324_knot1.png     dry_knot 2017-12-01 02:32:39
+## 9  2321bcd st1171_knot0.png     dry_knot 2017-12-01 02:32:41
+## 10 2321bcd st1165_knot0.png   sound_knot 2017-12-01 02:32:42
+## 11 2321bcd st1112_knot0.png encased_knot 2017-12-01 02:32:53
+## 12 3dafaa1 st1822_knot1.png   sound_knot 2017-11-22 04:57:56
+## 13 3dafaa1 st1747_knot1.png     dry_knot 2017-11-22 04:57:58
+## 14 3dafaa1 st1324_knot1.png encased_knot 2017-11-22 04:58:02
+## 15 3dafaa1 st1171_knot0.png encased_knot 2017-11-22 04:58:10
+## 16 3dafaa1 st1165_knot0.png   sound_knot 2017-11-22 04:58:12
+## 17 479504e st1822_knot1.png   sound_knot 2017-12-01 03:12:36
+## 18 479504e st1747_knot1.png     dry_knot 2017-12-01 03:12:37
+## 19 479504e st1324_knot1.png     dry_knot 2017-12-01 03:12:38
+## 20 479504e st1171_knot0.png     dry_knot 2017-12-01 03:12:39
+## 21 479504e st1165_knot0.png   sound_knot 2017-12-01 03:12:42
+## 22 58afded st1822_knot1.png encased_knot 2017-11-22 04:55:41
+## 23 58afded st1747_knot1.png encased_knot 2017-11-22 04:55:42
+## 24 58afded st1324_knot1.png encased_knot 2017-11-22 04:55:43
+## 25 58afded st1171_knot0.png encased_knot 2017-11-22 04:55:46
+## 26 58afded st1165_knot0.png encased_knot 2017-11-22 04:55:47
+## 27 58afded st1112_knot0.png encased_knot 2017-11-22 04:55:49
+## 28 65e8998 st1822_knot1.png   sound_knot 2017-12-01 03:05:19
+## 29 65e8998 st1747_knot1.png     dry_knot 2017-12-01 03:05:20
+## 30 65e8998 st1324_knot1.png     dry_knot 2017-12-01 03:05:23
+## 31 65e8998 st1165_knot0.png   sound_knot 2017-12-01 03:05:25
+## 32 6c766a0 st1822_knot1.png   sound_knot 2017-11-22 04:54:07
+## 33 6c766a0 st1747_knot1.png     dry_knot 2017-11-22 04:54:11
+## 34 6c766a0 st1165_knot0.png   sound_knot 2017-11-22 04:54:27
+## 35 6c766a0 st1171_knot0.png     dry_knot 2017-11-22 04:54:37
+## 36 8b8f578 st1822_knot1.png   sound_knot 2017-11-22 04:55:52
+## 37 8b8f578 st1747_knot1.png     dry_knot 2017-11-22 04:55:56
+## 38 8b8f578 st1324_knot1.png encased_knot 2017-11-22 04:55:58
+## 39 8b8f578 st1171_knot0.png encased_knot 2017-11-22 04:56:09
+## 40 8b8f578 st1165_knot0.png   sound_knot 2017-11-22 04:56:13
+## 41 8c6829d st1747_knot1.png encased_knot 2017-11-22 05:02:47
+## 42 a5de636 st1822_knot1.png   sound_knot 2017-11-22 04:55:50
+## 43 a5de636 st1747_knot1.png     dry_knot 2017-11-22 04:55:53
+## 44 a5de636 st1171_knot0.png     dry_knot 2017-11-22 04:56:02
+## 45 a5de636 st1165_knot0.png   sound_knot 2017-11-22 04:56:04
+## 46 a5de636 st1171_knot0.png encased_knot 2017-11-22 04:56:42
+## 47 a5de636 st1171_knot0.png     dry_knot 2017-11-22 04:56:51
+## 48 e7a838f st1822_knot1.png   sound_knot 2017-11-22 04:55:37
+## 49 e7a838f st1747_knot1.png     dry_knot 2017-11-22 04:55:41
+## 50 e7a838f st1171_knot0.png encased_knot 2017-11-22 04:55:50
+## 51 e7a838f st1165_knot0.png   sound_knot 2017-11-22 04:55:52</code></pre>
+<pre class="r"><code># class_samples &lt;- lapply(KNOT_CLASSES, function(kc) sample(which(labelled_knot_data_df$knot_class == kc), INITIAL_EXAMPLES_PER_CLASS))
+# 
+# in_training_set &lt;- (1:nrow(labelled_knot_data_df) %in% unlist(class_samples))
+# 
+# initial_training_set &lt;- labelled_knot_data_df[in_training_set,]
+# TEST_SET &lt;- labelled_knot_data_df[!in_training_set,]
 
 
 source(&quot;woodknots_active_learning_lib.R&quot;)</code></pre>
@@ -250,22 +265,22 @@ row.names(official) &lt;- official$knotname
 
 official</code></pre>
 <pre><code>##                  user_id         knotname knot_class           labeltime
-## st1822_knot1.png correct st1822_knot1.png sound_knot 2017-11-29 12:22:50
-## st1747_knot1.png correct st1747_knot1.png   dry_knot 2017-11-29 12:22:50
-## st1324_knot1.png correct st1324_knot1.png   dry_knot 2017-11-29 12:22:50
-## st1171_knot0.png correct st1171_knot0.png   dry_knot 2017-11-29 12:22:50
-## st1165_knot0.png correct st1165_knot0.png sound_knot 2017-11-29 12:22:50
-## st1112_knot0.png correct st1112_knot0.png       &lt;NA&gt; 2017-11-29 12:22:50</code></pre>
+## st1822_knot1.png correct st1822_knot1.png sound_knot 2017-11-30 19:13:04
+## st1747_knot1.png correct st1747_knot1.png   dry_knot 2017-11-30 19:13:04
+## st1324_knot1.png correct st1324_knot1.png   dry_knot 2017-11-30 19:13:04
+## st1171_knot0.png correct st1171_knot0.png   dry_knot 2017-11-30 19:13:04
+## st1165_knot0.png correct st1165_knot0.png sound_knot 2017-11-30 19:13:04
+## st1112_knot0.png correct st1112_knot0.png       &lt;NA&gt; 2017-11-30 19:13:04</code></pre>
 <pre class="r"><code>official_cases &lt;- unlabelled_knot_data_df %&gt;%
                   filter(path %in% official$knotname)
 
 official_cases$knot_class &lt;- official[official_cases$path, &quot;knot_class&quot;]
 
-new_training_set &lt;- rbind(initial_training_set, official_cases)
+new_training_set &lt;- rbind(INITIAL_TRAINING_SET, official_cases)
 
-(official_results &lt;- fit_and_evaluate_model(new_training_set, additional_cases_to_label=2)$performance)</code></pre>
+(official_results &lt;- fit_and_evaluate_model(new_training_set)$performance)</code></pre>
 <pre><code>##    accuracy   auc_sound     auc_dry auc_encased  negentropy 
-##   0.7374517   0.9383654   0.8532556   0.7816875  -0.5891338</code></pre>
+##   0.8185328   0.9421965   0.9332685   0.8494842  -0.5977660</code></pre>
 </div>
 <div id="user-labels" class="section level1">
 <h1>User labels</h1>
@@ -286,27 +301,30 @@ user_results &lt;- lapply(user_id_vec, function(userID){
 
   user_cases$knot_class &lt;- user_labels[user_cases$path, &quot;knot_class&quot;]
 
-  user_training_set &lt;- rbind(initial_training_set, user_cases)
+  user_training_set &lt;- rbind(INITIAL_TRAINING_SET, user_cases)
 
-  fit_and_evaluate_model(user_training_set, additional_cases_to_label=2)
+  fit_and_evaluate_model(user_training_set)
 })
 
 
 (user_results_matrix &lt;- user_results %&gt;% sapply(function(ures) ures$performance) %&gt;% t)</code></pre>
 <pre><code>##          accuracy auc_sound   auc_dry auc_encased negentropy
-## 097d11c 0.7567568 0.9290227 0.8691286   0.7872144 -0.4741569
-## 3dafaa1 0.7722008 0.9258637 0.8624474   0.7988209 -0.5863542
-## 58afded 0.6332046 0.8546176 0.8099287   0.7302874 -0.6295904
-## 6c766a0 0.7992278 0.9387687 0.8780369   0.7875829 -0.5738439
-## 8b8f578 0.7722008 0.9258637 0.8624474   0.7988209 -0.5863542
-## 8c6829d 0.6563707 0.8709504 0.8206997   0.7490789 -0.5948771
-## a5de636 0.7992278 0.9387687 0.8780369   0.7875829 -0.5738439
-## e7a838f 0.7799228 0.9347359 0.8669825   0.8102432 -0.5598217</code></pre>
+## 097d11c 0.7683398 0.9053636 0.8775510   0.8467207 -0.6332237
+## 2321bcd 0.7876448 0.9294260 0.9300292   0.8347458 -0.6187272
+## 3dafaa1 0.7683398 0.9241161 0.8848397   0.8848563 -0.6605652
+## 479504e 0.8185328 0.9421965 0.9332685   0.8494842 -0.5977660
+## 58afded 0.6718147 0.9264686 0.8361678   0.8603537 -0.7581912
+## 65e8998 0.7760618 0.9069095 0.8921283   0.8668018 -0.6470840
+## 6c766a0 0.7992278 0.9291571 0.9348073   0.8509580 -0.6151230
+## 8b8f578 0.7683398 0.9241161 0.8848397   0.8848563 -0.6605652
+## 8c6829d 0.7258687 0.9203522 0.8086330   0.8485630 -0.7530103
+## a5de636 0.7992278 0.9291571 0.9348073   0.8509580 -0.6151230
+## e7a838f 0.7760618 0.9201506 0.8836249   0.8618276 -0.6506486</code></pre>
 <pre class="r"><code>official_results</code></pre>
 <pre><code>##    accuracy   auc_sound     auc_dry auc_encased  negentropy 
-##   0.7374517   0.9383654   0.8532556   0.7816875  -0.5891338</code></pre>
+##   0.8185328   0.9421965   0.9332685   0.8494842  -0.5977660</code></pre>
 <p>User id <code>58afded</code> was a test where I just entered <code>encased_knot</code> for each knot. As expected, this led to poor performance.</p>
-<p>Note that 75 percent of the participant labels led to models with better accuracy than the “official” labels. Part of the reason for this appears to be that the official images include many that are very low resolution. Since the workshop last week, I have removed the lowest resolution images, and the performance of the actively learned model has improved. Still, even with the poor quality images, active learning clearly pays off after a few rounds.</p>
+<p>Note that 0 percent of the participant labels led to models with better accuracy than the “official” labels. Part of the reason for this appears to be that the official images include many that are very low resolution. Since the workshop last week, I have removed the lowest resolution images, and the performance of the actively learned model has improved. Still, even with the poor quality images, active learning clearly pays off after a few rounds.</p>
 </div>
 
 
