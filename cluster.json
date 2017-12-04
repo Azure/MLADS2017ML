@@ -1,0 +1,23 @@
+{
+  "name": "tutorialBatchPool",
+  "vmSize": "Standard_D3_v2", 
+  "maxTasksPerNode": 1,       
+  "poolSize": {
+    "dedicatedNodes": {
+      "min": 2,               
+      "max": 2
+    },
+    "lowPriorityNodes": {
+      "min": 0,
+      "max": 3                
+    },
+    "autoscaleFormula": "QUEUE"
+  },
+  "containerImage": "rocker/tidyverse:latest",
+  "rPackages": {
+    "cran": [],
+    "github": [],
+    "bioconductor": []
+  },
+  "commandLine": []
+}

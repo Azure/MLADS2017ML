@@ -42,3 +42,4 @@ vignettes/*.pdf
 *.knit.md
 .Rproj.user
 /.vs/slnx.sqlite
+/credentials.json
