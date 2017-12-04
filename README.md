@@ -16,50 +16,51 @@ Our [label collection website](https://woodknotlabeler.azurewebsites.net) has in
 
 ## Outline
 
+0. Welcome and setup (10 min)
+	* provisioning compute resources
 
 1. Introduction (20 min)
     - Deep learning as feature development + classification/regression
     - Use case: wood knot classification for grading lumber
-        – build a classifier to make distinctions the original model was not trained for
-        – transfer of low-level features (edges, etc.)
-        – labeled training set: three calsses of knots
+        - build a classifier to make distinctions the original model was not trained for
+        - transfer of low-level features (edges, etc.)
+        - labeled training set: three calsses of knots
+    - Relationship to transfer learning in general
+		- more data lets you tune weights further up the stack of layers
 
-2. Activity 1: Featurizing Images at Scale (20 min)
+**Activity 1:** Featurizing Images at Scale (20 min)
 
-3. Building a Classification Model (while featurization is running)
-    * Handling wide data: more columns than rows
-        - examine featurized data (ResNet100 had 4096 features)
-        - ordinary least squares regression is underdetermined
-        - regularization (or sampling and ensembling) to the rescue
-        - this is not specific to featurization, only to the number of features
-    * Build preliminary model (optional exercise, participants can follow along)
-    * Evaluating and tuning the model
-        - performance
-            - multiclass classifier: confusion matrix
-            - ROC curves for one class at a time
-        - hyperparameter optimization
-        - Where does it still need improvement?
+2. Active Learning: Background (10 min) 
+	* data is often easier to come by than expert labels
+	* use the preliminary model for triage of unlabeled data
+		- What is the model good at? What needs work (e.g., more training data)?
+		- How much of the unlabeled data can we eliminate as already identifiable?
+	* better model -> better triage -> better selection of cases to label -> better model -> ...
+	* Companies like CrowdFlower and services like the Custom Vision Service use active learning.
 
-4. Activity 2: Scoring Images at Scale (10 min)
+3. Active Learning: First Round (10 min)
+	(Walk through first part of Active Learning Workshop RMD file)
+	* Build and evaluate model
+		- Build initial classification model
+			- Handling wide data: more columns than rows
+			- ordinary least squares regression is underdetermined
+			- regularization (or sampling and ensembling) to the rescue
+			- this is not specific to featurization, only to the number of features
+		- performance
+			- multiclass classifier: confusion matrix
+		    - ROC curves for one class at a time
+		- hyperparameters (we're using fixed values of L1 and L2 penalties, but they are important)
+	* Select the most useful images to label
+		- worst best score
+		- information entropy
 
-5. Active Learning (15 min)
-    * Bootstrapping active learning
-        - data is often easier to come by than expert labels
-        - use the preliminary model for triage of unlabeled data
-            - What is the model good at? What needs work (e.g., more training data)?
-            - How much of the unlabeled data can we eliminate as already identifiable?
-        - better model -> better triage -> better selection of cases to label -> better model -> ...
-        - relationship to transfer learning in general
-            - more data lets you tune weights further up the stack of layers
-    * Classes of wood knots
-    * Selecting the most useful images to label
+**Activity 2:** Label selected images (15 min)
 
-6. Activity 3: Labeling selected images (30 min)
+4. Active Learning: Iterative Improvement (15 min) 
+	(Walk through rest of Active Learning Workshop RMD file)
 
-7. Building Improved Model (20 min)
-    * Select new labeled examples by SQL query
-    * Re-run model
-    * Re-run evaluation
+**Demo:** Evaluating Participant Performance (5 min) 
+
 
 
 ## Contributing
