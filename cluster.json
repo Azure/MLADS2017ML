@@ -1,5 +1,5 @@
 {
-  "name": "tutorialBatchPool",
+  "name": "tutorialPool2",
   "vmSize": "Standard_D3_v2", 
   "maxTasksPerNode": 1,       
   "poolSize": {
@@ -19,5 +19,9 @@
     "github": ["Azure/doAzureParallel", "Azure/rAzureBatch" ],
     "bioconductor": []
   },
-  "commandLine": []
+  "commandLine": [
+    "printf '[mlrepo]\nname=mlserver\nbaseurl=https://mlrepo:2oE8gc7BY$673dRwtYo6mL*K@mlserverrepo.westus2.cloudapp.azure.com/8f9b9035111344af80c81e11b0cb0eeb/rpm\ngpgcheck=0\nenabled=1\n' > /etc/yum.repos.d/mlserver.repo",
+    "yum -y install microsoft-mlserver-all-9.2.1",
+    "/opt/microsoft/mlserver/9.2.1/bin/R/activate.sh -a -l"
+  ]
 }

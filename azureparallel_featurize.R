@@ -91,35 +91,13 @@ batch_directory <- function(dir){
   image_features
 }
 
-BLOB_URL_BASE = "https://storage4tomasbatch.blob.core.windows.net/tutorial/faces_small/";
-batch_blob_directory <- function(dir){
-  pwd <- setwd(dir)
-  
-  # Note: be sure the file name has not been converted to a factor! If it has, you get an error like this:
-  # Exception: 'Source column 'path' has invalid type ('Key<U4, 0-595>'): Expected Text type.
-  files_info = data.frame(path = list.files(pattern="*.jpg"), stringsAsFactors=FALSE)
-  
-  # HACK: mirrored the directory contents in blob
-  # TODO: list blob container contents
-  blob_info = data.frame(url = paste0(BLOB_URL_BASE, files_info$path), stringsAsFactors=FALSE);
-  
-  image_features <- rxFeaturize(data = blob_info,
-                                mlTransforms = list(loadImage(vars = list(Image = "url")),
-                                                    resizeImage(vars = list(Features = "Image"), 
-                                                                width = 224, height = 224, 
-                                                                resizingOption = "IsoPad"),
-                                                    extractPixels(vars = "Features"),
-                                                    featurizeImage(var = "Features", 
-                                                                   dnnModel = DNN_MODEL)),
-                                mlTransformVars = c("url"),
-                                reportProgress=1)
-  
-  setwd(pwd)
-  image_features
-  
-}
+##########################################################################################
+# Parallel kernel for featurization
 
 parallel_kernel <- function(blob_info) {
+  
+  library("MicrosoftML")
+  
   image_features <- rxFeaturize(data = blob_info,
                               mlTransforms = list(loadImage(vars = list(Image = "url")),
                                                   resizeImage(vars = list(Features = "Image"), 
@@ -127,7 +105,7 @@ parallel_kernel <- function(blob_info) {
                                                               resizingOption = "IsoPad"),
                                                   extractPixels(vars = "Features"),
                                                   featurizeImage(var = "Features", 
-                                                                 dnnModel = DNN_MODEL)),
+                                                                 dnnModel = "resnet18")),
                               mlTransformVars = c("url"),
                               reportProgress=1)
 }
@@ -153,6 +131,28 @@ testset <- testset[ testset$pname %in% unique(trainset$pname), ]
 trainset$pname <- as.factor(trainset$pname);
 testset$pname <- as.factor(testset$pname);
 
+BLOB_URL_BASE = "https://storage4tomasbatch.blob.core.windows.net/tutorial";
+
+###########################################################################################
+library(AzureSMR)
+####
+
+
+## list blob contents
+blob_info <- azureBlobLS(azureActiveContext = NULL, 
+                         directory = "faces_small", 
+                         recursive = FALSE, 
+                         storageAccount = "storage4tomasbatch",
+                         storageKey = "WpJqUKKq+8dgOGIXNlubRVrLu6vdNArNW9sE+cAGdwss1ETSb3P9ihjcSbFBQitAMs7RX/avXtGAYRORhuhHZA==", 
+                         container = "tutorial", 
+                         resourceGroup = "FTK", 
+                         verbose = FALSE)
+
+# yes, I'm rotating the keys after the tutorial 
+
+blob_info$url <- paste(BLOB_URL_BASE, sep='', blob_info$name)
+
+
 ###########################################################################################
 ## Featurize the images
 face_data_df <- featurize_directory(IMAGE_DIR)
@@ -167,16 +167,16 @@ azure_pixels_df <- pixelize_directory(IMAGE_DIR)# interestingly, only sends 5000
 image_features <- batch_blob_directory(IMAGE_DIR)
 
 
-############ do it the AzurePArallel way
-BATCH_SIZE = 10;
-NO_BATCHES = ceiling(nrow(blob_info)/BATCH_SIZE);
 
-results <- foreach(i=1:NO_BATCHES) %do% {
+############ do it the AzurePArallel way
+BATCH_SIZE = 27;
+NO_BATCHES = ceiling(nrow(blob_info)/BATCH_SIZE);
+setVerbose(TRUE)
+
+results <- foreach(i=1:NO_BATCHES) %dopar% {
   N = nrow(blob_info);
   fromRow = (i-1)*BATCH_SIZE+1;
   toRow = min(i*BATCH_SIZE, N);
-  print(fromRow)
-  print(toRow)
   parallel_kernel(blob_info[fromRow:toRow,])
 }
 

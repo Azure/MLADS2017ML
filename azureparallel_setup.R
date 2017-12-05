@@ -1,14 +1,16 @@
 ## This script sets everything up for using azureParallel
 
 # Install required packages and dependencies
-install.packages("devtools")
+install.packages(c("devtools"))
 devtools::install_github("Azure/rAzureBatch")
 devtools::install_github("Azure/doAzureParallel")
-
+devtools::install_github("Microsoft/AzureSMR");
 
 ####################################################################################################
 # If you haven't yet, you should follow the instructions at https://github.com/Azure/doAzureParallel
 # to set up the Azure Batch account.
+
+# Note: it seems you need R 3.4.something
 
 # Note, it can take NN minutes to create a batch account. If you haven't, do it now!
 
@@ -18,6 +20,7 @@ devtools::install_github("Azure/doAzureParallel")
 library(doAzureParallel)
 
 # 1. Generate your credential and cluster configuration files.
+# setwd("C:\\Users\\tosingli\\Source\\MLADS2017ML")
 generateClusterConfig("cluster.json")
 generateCredentialsConfig("credentials.json")
 
