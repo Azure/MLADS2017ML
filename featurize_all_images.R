@@ -2,14 +2,14 @@
 # Featurize all images
 
 
-LABELLED_FEATURIZED_DATA <- "labelled_knots_featurized_resnet18.Rds"
-UNLABELLED_FEATURIZED_DATA <- "unlabelled_knots_featurized_resnet18.Rds"
+LABELLED_FEATURIZED_DATA <- "data/labelled_knots_featurized_resnet18.Rds"
+UNLABELLED_FEATURIZED_DATA <- "data/unlabelled_knots_featurized_resnet18.Rds"
 
 LABELLED_IMAGE_DIR <- "e:/ml_data/wood_knots/knot_images_png"
 UNLABELLED_IMAGE_DIR <- "e:/ml_data/WOOD/unlabelled_cropped_png"
 
 LABELS_FILE <- "names.txt"
-PSEUDOLABELS_FILE <- "unlabelled_knot_info.csv" # We'll pretend these come from our labellers
+PSEUDOLABELS_FILE <- "data/unlabelled_knot_info.csv" # We'll pretend these come from our labellers
 
 
 # I have a beta version that capitalized the model name. This should (?) work for other folks.

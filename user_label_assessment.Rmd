@@ -31,14 +31,14 @@ INITIAL_EXAMPLES_PER_CLASS <- 6  # cases from the labelled dataset used to train
 # This order determines the order of factor levels
 KNOT_CLASSES <- setNames(nm=c("sound_knot", "dry_knot", "encased_knot"))
 
-LABELLED_FEATURIZED_DATA <- "labelled_knots_featurized_resnet18.Rds"
-UNLABELLED_FEATURIZED_DATA <- "unlabelled_knots_featurized_resnet18.Rds"
+LABELLED_FEATURIZED_DATA <- "data/labelled_knots_featurized_resnet18.Rds"
+UNLABELLED_FEATURIZED_DATA <- "data/unlabelled_knots_featurized_resnet18.Rds"
 
 unlabelled_knot_data_df <- readRDS(UNLABELLED_FEATURIZED_DATA)
 # labelled_knot_data_df <- readRDS(LABELLED_FEATURIZED_DATA)
 
-TEST_SET <- readRDS("test_set.Rds")
-INITIAL_TRAINING_SET <- readRDS("initial_training_set.Rds")
+TEST_SET <- readRDS("data/test_set.Rds")
+INITIAL_TRAINING_SET <- readRDS("data/initial_training_set.Rds")
 
 inputs <- grep("^Feature", names(INITIAL_TRAINING_SET), value=TRUE)
 outcome <- "knot_class"
