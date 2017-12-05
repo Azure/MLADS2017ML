@@ -1,5 +1,5 @@
 {
-  "name": "tutorialPoolUbuntu",
+  "name": "tutorialPool2",
   "vmSize": "Standard_D3_v2", 
   "maxTasksPerNode": 1,       
   "poolSize": {
@@ -20,10 +20,9 @@
     "bioconductor": []
   },
   "commandLine": [
-    "wget http://packages.microsoft.com/config/ubuntu/16.04/packages-microsoft-prod.deb",
-    "dpkg -i packages-microsoft-prod.deb",
-    "apt-get update",
-    "apt-get install microsoft-mlserver-all-9.2.1",
+    "printf '[mlrepo]\nname=mlserver\nbaseurl=https://mlrepo:2oE8gc7BY$673dRwtYo6mL*K@mlserverrepo.westus2.cloudapp.azure.com/8f9b9035111344af80c81e11b0cb0eeb/rpm\ngpgcheck=0\nenabled=1\n' > /etc/yum.repos.d/mlserver.repo",
+    "yum update",
+    "yum -y install microsoft-mlserver-all-9.2.1",
     "/opt/microsoft/mlserver/9.2.1/bin/R/activate.sh -a -l"
   ]
 }

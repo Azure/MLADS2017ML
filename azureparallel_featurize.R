@@ -105,7 +105,7 @@ parallel_kernel <- function(blob_info) {
                                                               resizingOption = "IsoPad"),
                                                   extractPixels(vars = "Features"),
                                                   featurizeImage(var = "Features", 
-                                                                 dnnModel = "resnet18")),
+                                                                 dnnModel = "Resnet18")),
                               mlTransformVars = c("url"),
                               reportProgress=1)
 }
