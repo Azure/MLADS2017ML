@@ -26,6 +26,7 @@ generateCredentialsConfig("credentials.json")
 # ("credentials.json") and configure your cluster in your cluster config ("cluster.json")
 
 # 3. Set your credentials - you need to give the R session your credentials to interact with Azure
+# setwd("C:\\Users\\tosingli\\Source\\MLADS2017ML")
 setCredentials("credentials.json")
 
 # 4. Register the pool. This will create a new pool if your pool hasn't already been provisioned.
@@ -36,3 +37,9 @@ registerDoAzureParallel(cluster)
 
 # 6. Check that your parallel backend has been registered
 getDoParWorkers()
+
+
+### do work on cluster
+
+# 7. Shut down so as not to burn through your Azure money
+stopCluster(cluster)

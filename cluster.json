@@ -16,7 +16,7 @@
   "containerImage": "rocker/tidyverse:latest",
   "rPackages": {
     "cran": [],
-    "github": [],
+    "github": ["Azure/doAzureParallel", "Azure/rAzureBatch" ],
     "bioconductor": []
   },
   "commandLine": []
