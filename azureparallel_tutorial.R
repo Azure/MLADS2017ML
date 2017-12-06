@@ -7,41 +7,49 @@
 library(AzureSMR)
 
 BLOB_URL_BASE = "https://storage4tomasbatch.blob.core.windows.net/tutorial/";
+storageAccount = "storage4tomasbatch";
+storageKey = "WpJqUKKq+8dgOGIXNlubRVrLu6vdNArNW9sE+cAGdwss1ETSb3P9ihjcSbFBQitAMs7RX/avXtGAYRORhuhHZA==";
+container = "tutorial";
 
 ## list blob contents
-marker = NULL;
-blob_info = NULL;
-repeat {
-  info <- azureListStorageBlobs(NULL, 
-                                   storageAccount = "storage4tomasbatch",
-                                   storageKey = "WpJqUKKq+8dgOGIXNlubRVrLu6vdNArNW9sE+cAGdwss1ETSb3P9ihjcSbFBQitAMs7RX/avXtGAYRORhuhHZA==", 
-                                   container = "tutorial",
+get_blob_info <- function(storageAccount, storageKey, container, prefix) {
+  marker = NULL;
+  blob_info = NULL;
+  repeat {
+    info <- azureListStorageBlobs(NULL, 
+                                   storageAccount = storageAccount,
+                                   storageKey = storageKey, 
+                                   container = container,
                                    marker = marker,
-                                   prefix = "faces_small")
-                                   # prefix = "faces_full") # replace with the full dataset
+                                   prefix = prefix)
   
-  if (is.null(blob_info)) {
-    blob_info = info;
-  } else {
-    blob_info = rbind(blob_info, info)
-  }
+    if (is.null(blob_info)) {
+      blob_info = info;
+    } else {
+      blob_info = rbind(blob_info, info)
+    }
   
-  marker <- attr(info, 'marker');
-  print(paste0("Have ", nrow(blob_info), " blobs"));
-  if (marker == "") {
-    break
-  } else {
-    print("Still more blobs to get")
-  }
-}
+    marker <- attr(info, 'marker');
+    print(paste0("Have ", nrow(blob_info), " blobs"));
+    if (marker == "") {
+      break
+    } else {
+      print("Still more blobs to get")
+    }
+  } # end blob directory read loop
 
-# preprocess the file names into urls and class (person) names
-blob_info$url <- paste(BLOB_URL_BASE, sep='', blob_info$name)
-blob_info$fname <- sapply(strsplit(blob_info$name, '/'), function(l) {l[2]})
-blob_info$bname <- sapply(strsplit(blob_info$fname, ".", fixed=TRUE), function(l) l[1])
-blob_info$pname <- sapply(strsplit(blob_info$fname, "_", fixed=TRUE), 
+  # preprocess the file names into urls and class (person) names
+  blob_info$url <- paste(BLOB_URL_BASE, sep='', blob_info$name)
+  blob_info$fname <- sapply(strsplit(blob_info$name, '/'), function(l) {l[2]})
+  blob_info$bname <- sapply(strsplit(blob_info$fname, ".", fixed=TRUE), function(l) l[1])
+  blob_info$pname <- sapply(strsplit(blob_info$fname, "_", fixed=TRUE), 
                           function(l) paste(l[1:(length(l)-1)], collapse=" "))
 
+  return(blob_info);
+} # end get_blob_info
+
+blob_info <- get_blob_info(storageAccount, storageKey, container, prefix = "faces_small");
+blob_info <- get_blob_info(storageAccount, storageKey, container, prefix = "faces_full");
 
 ##########################################################################################
 # Parallel kernel for featurization
@@ -84,7 +92,7 @@ print(paste0("Ran for ", as.numeric(end_time - start_time, units="secs"), " seco
 ##########################################################################################
 #### Run the parallel kernel
 
-BATCH_SIZE = 14;                            # 27 is two tasks per node on small dataset and small cluster
+BATCH_SIZE = 200;                            # 27 is two tasks per node on small dataset and small cluster
                                              # 14 is one tasks per node on small dataset and big cluster
                                              # larger batch size for larger dataset will defray overhead
 NO_BATCHES = ceiling(nrow(blob_info)/BATCH_SIZE);

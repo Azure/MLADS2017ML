@@ -1,7 +1,7 @@
 ## This script sets everything up for using azureParallel
 
 # Install required packages and dependencies
-install.packages(c("devtools", "dplyr", "tidyr", "ggplot2"))
+install.packages(c("devtools", "dplyr", "tidyr", "ggplot2", "magrittr"))
 devtools::install_github("Azure/rAzureBatch@v0.5.1")
 devtools::install_github("Azure/doAzureParallel@v0.5.1")
 
@@ -20,7 +20,7 @@ devtools::install_github("Microsoft/AzureSMR");
 library(doAzureParallel)
 
 # 1. Generate your credential and cluster configuration files.
-# setwd("C:\\Users\\tosingli\\Source\\MLADS2017ML")
+# setwd("C:\\Users\\tosingli\\Source\\MLADS217ML")
 generateClusterConfig("cluster_default.json")
 generateCredentialsConfig("credentials_default.json")
 
