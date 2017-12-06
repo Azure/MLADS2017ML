@@ -104,7 +104,8 @@ print(paste0("Ran for ", as.numeric(end_time - start_time, units="secs"), " seco
 ## 108 images take ~54 seconds on small cluster (2 img/s) 
 ## 108 images take ~24 seconds on large cluster (5 img/s) (cluster overhead)
 ##  5k images take ~255 seconds on large cluster (20 img/s)
-## 10k images take ~417 seconds on large cluster (23 img/s) (8 nodes -> 0.6x speedup)
+## 10k images take ~417 seconds on large cluster (23 img/s) 
+## 8 nodes -> 4.5x speedup vs local. My desktop is a bigger machine, so great!
 
 
 ##########################################################################################
