@@ -94,20 +94,63 @@ batch_directory <- function(dir){
 ##########################################################################################
 # Parallel kernel for featurization
 
+### install packages on the workers if needed
+install_packages_as_needed <- function() {
+
+  if(!require(devtools)){
+    
+    # apply directly to the forehead, do not pass CRAN
+    # packageurl <- 'https://cran.r-project.org/src/contrib/devtools_1.13.4.tar.gz';
+    # install.packages(packageurl, repos=NULL, type="source")
+    install.packages("devtools", repos="https://cloud.r-project.org")
+    
+    library(devtools);
+  }
+  
+  if(!require(rAzureBatch)){
+    devtools::install_github("Azure/rAzureBatch")
+  }
+  
+  if(!require(doAzureParallel)){
+    # devtools::install_github("Azure/doAzureParallel", ref="v0.5.1")
+    devtools::install_github("Azure/doAzureParallel")
+  }
+}
+
+sys_info <- function(blob_info) {
+  
+  # install_packages_as_needed();
+  
+  library("MicrosoftML");
+  
+  print(Sys.info())
+  print(getwd());
+  print(list.files('.'))
+  print(sessionInfo());
+  
+  paste(sep="\n\n\n\n###########################################\n\n\n\n",
+        Sys.info(),
+        getwd(),
+        list.files('.'),
+        sessionInfo()
+        );
+}
+
 parallel_kernel <- function(blob_info) {
   
   library("MicrosoftML")
   
   image_features <- rxFeaturize(data = blob_info,
-                              mlTransforms = list(loadImage(vars = list(Image = "url")),
-                                                  resizeImage(vars = list(Features = "Image"), 
-                                                              width = 224, height = 224, 
-                                                              resizingOption = "IsoPad"),
-                                                  extractPixels(vars = "Features"),
-                                                  featurizeImage(var = "Features", 
-                                                                 dnnModel = "Resnet18")),
-                              mlTransformVars = c("url"),
-                              reportProgress=1)
+                             mlTransforms = list(loadImage(vars = list(Image = "url")),
+                                                 resizeImage(vars = list(Features = "Image"),
+                                                             width = 224, height = 224,
+                                                             resizingOption = "IsoPad"),
+                                                 extractPixels(vars = "Features"),
+                                                 featurizeImage(var = "Features",
+                                                                dnnModel = "Resnet18")),
+                             mlTransformVars = c("url"),
+                             reportProgress=1)
+  image_features
 }
 
 ##########################################################################################
@@ -142,13 +185,13 @@ library(AzureSMR)
 blob_info <- azureBlobLS(azureActiveContext = NULL, 
                          directory = "faces_small", 
                          recursive = FALSE, 
+                         # yes, I'm rotating the keys after the tutorial 
                          storageAccount = "storage4tomasbatch",
                          storageKey = "WpJqUKKq+8dgOGIXNlubRVrLu6vdNArNW9sE+cAGdwss1ETSb3P9ihjcSbFBQitAMs7RX/avXtGAYRORhuhHZA==", 
                          container = "tutorial", 
                          resourceGroup = "FTK", 
                          verbose = FALSE)
 
-# yes, I'm rotating the keys after the tutorial 
 
 blob_info$url <- paste(BLOB_URL_BASE, sep='', blob_info$name)
 
@@ -169,15 +212,24 @@ image_features <- batch_blob_directory(IMAGE_DIR)
 
 
 ############ do it the AzurePArallel way
-BATCH_SIZE = 27;
+BATCH_SIZE = 109;
 NO_BATCHES = ceiling(nrow(blob_info)/BATCH_SIZE);
 setVerbose(TRUE)
+
+# results  <- foreach(i=1:NO_BATCHES, .packages=c("MicrosoftML")) %dopar% {
+  
+results <- foreach(i=1:NO_BATCHES ) %dopar% {
+  N = nrow(blob_info);
+  fromRow = (i-1)*BATCH_SIZE+1;
+  toRow = min(i*BATCH_SIZE, N);
+  parallel_kernel(blob_info[fromRow:toRow,])
+}
 
 results <- foreach(i=1:NO_BATCHES) %dopar% {
   N = nrow(blob_info);
   fromRow = (i-1)*BATCH_SIZE+1;
   toRow = min(i*BATCH_SIZE, N);
-  parallel_kernel(blob_info[fromRow:toRow,])
+  sys_info(blob_info[fromRow:toRow,])
 }
 
 # clean up result

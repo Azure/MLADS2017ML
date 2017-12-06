@@ -3,7 +3,7 @@
 # Install required packages and dependencies
 install.packages(c("devtools"))
 devtools::install_github("Azure/rAzureBatch")
-devtools::install_github("Azure/doAzureParallel")
+devtools::install_github("Azure/doAzureParallel@v0.5.1")
 devtools::install_github("Microsoft/AzureSMR");
 
 ####################################################################################################
@@ -21,8 +21,8 @@ library(doAzureParallel)
 
 # 1. Generate your credential and cluster configuration files.
 # setwd("C:\\Users\\tosingli\\Source\\MLADS2017ML")
-generateClusterConfig("cluster.json")
-generateCredentialsConfig("credentials.json")
+generateClusterConfig("cluster_default.json")
+generateCredentialsConfig("credentials_default.json")
 
 # 2. Fill out your credential config and cluster config files.
 # Enter your Azure Batch Account & Azure Storage keys/account-info into your credential config 
@@ -34,9 +34,11 @@ setCredentials("credentials.json")
 
 # 4. Register the pool. This will create a new pool if your pool hasn't already been provisioned.
 cluster <- makeCluster("cluster.json")
+cluster2 <- makeCluster("cluster_centos.json")
 
 # 5. Register the pool as your parallel backend
 registerDoAzureParallel(cluster)
+registerDoAzureParallel(cluster2)
 
 # 6. Check that your parallel backend has been registered
 getDoParWorkers()
@@ -46,3 +48,4 @@ getDoParWorkers()
 
 # 7. Shut down so as not to burn through your Azure money
 stopCluster(cluster)
+stopCluster(cluster2)
