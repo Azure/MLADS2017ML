@@ -174,7 +174,7 @@ testset <- testset[ testset$pname %in% unique(trainset$pname), ]
 trainset$pname <- as.factor(trainset$pname);
 testset$pname <- as.factor(testset$pname);
 
-BLOB_URL_BASE = "https://storage4tomasbatch.blob.core.windows.net/tutorial";
+BLOB_URL_BASE = "https://storage4tomasbatch.blob.core.windows.net/tutorial/";
 
 ###########################################################################################
 library(AzureSMR)
@@ -182,18 +182,19 @@ library(AzureSMR)
 
 
 ## list blob contents
-blob_info <- azureBlobLS(azureActiveContext = NULL, 
-                         directory = "faces_small", 
-                         recursive = FALSE, 
-                         # yes, I'm rotating the keys after the tutorial 
-                         storageAccount = "storage4tomasbatch",
-                         storageKey = "WpJqUKKq+8dgOGIXNlubRVrLu6vdNArNW9sE+cAGdwss1ETSb3P9ihjcSbFBQitAMs7RX/avXtGAYRORhuhHZA==", 
-                         container = "tutorial", 
-                         resourceGroup = "FTK", 
-                         verbose = FALSE)
+blob_info <- azureListStorageBlobs(NULL, 
+                           storageAccount = "storage4tomasbatch",
+                           storageKey = "WpJqUKKq+8dgOGIXNlubRVrLu6vdNArNW9sE+cAGdwss1ETSb3P9ihjcSbFBQitAMs7RX/avXtGAYRORhuhHZA==", 
+                           container = "tutorial",
+                           prefix = "faces_small")
 
 
+# preprocess the file names into class (person) names
 blob_info$url <- paste(BLOB_URL_BASE, sep='', blob_info$name)
+blob_info$fname <- sapply(strsplit(blob_info$name, '/'), function(l) {l[2]})
+blob_info$bname <- sapply(strsplit(blob_info$fname, ".", fixed=TRUE), function(l) l[1])
+blob_info$pname <- sapply(strsplit(blob_info$fname, "_", fixed=TRUE), 
+                           function(l) paste(l[1:(length(l)-1)], collapse=" "))
 
 
 ###########################################################################################
@@ -212,7 +213,7 @@ image_features <- batch_blob_directory(IMAGE_DIR)
 
 
 ############ do it the AzurePArallel way
-BATCH_SIZE = 109;
+BATCH_SIZE = 27;
 NO_BATCHES = ceiling(nrow(blob_info)/BATCH_SIZE);
 setVerbose(TRUE)
 
@@ -232,7 +233,28 @@ results <- foreach(i=1:NO_BATCHES) %dopar% {
   sys_info(blob_info[fromRow:toRow,])
 }
 
-# clean up result
+# clean up result: it's a list of outputs, one from each task, we need to rbind them
+single_df <- Reduce(rbind, results)
 
+#####################################################################################
+# makes sense?
+library(tidyr)
+library(ggplot2)
+library(magrittr)
+features <- single_df %>% gather(featname, featval, -url)
+plottable <- features[startsWith(features$featname, 'Feature'),];
+
+plottable$fname <- sapply(strsplit(plottable$url, '/'), function(l) {l[6]})
+plottable$bname <- sapply(strsplit(plottable$fname, ".", fixed=TRUE), function(l) l[1])
+plottable$pname <- sapply(strsplit(plottable$fname, "_", fixed=TRUE), 
+                          function(l) paste(l[1:(length(l)-1)], collapse=" "))
+
+plottable <- plottable 
+
+(
+  p <- ggplot(plottable, aes(featname, pname)) + 
+      geom_tile(aes(fill = featval), colour = "white") +
+      scale_fill_gradient(low = "white",high = "steelblue")
+)
 
 
