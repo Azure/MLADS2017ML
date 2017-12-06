@@ -1,15 +1,32 @@
 
 # Featurize all images
+DATA_DIR <- file.path(getwd(), 'data')
+
+LABELLED_FEATURIZED_DATA <- file.path(DATA_DIR, "labelled_knots_featurized_resnet18.Rds")
+UNLABELLED_FEATURIZED_DATA <- file.path(DATA_DIR, "unlabelled_knots_featurized_resnet18.Rds")
+
+LABELLED_IMAGE_DIR <- file.path(DATA_DIR, "knot_images_png")
+UNLABELLED_IMAGE_DIR <- file.path(DATA_DIR, "unlabelled_cropped_png")
+
+LABELS_FILE <- file.path(DATA_DIR, "names.txt")
+# PSEUDOLABELS_FILE <- file.path(DATA_DIR, "unlabelled_knot_info.csv") # We'll pretend these come from our labellers
+
+# All knot classes
+KNOT_CLASSES <- setNames(nm=c("sound_knot", "dry_knot", "encased_knot"))
 
 
-LABELLED_FEATURIZED_DATA <- "data/labelled_knots_featurized_resnet18.Rds"
-UNLABELLED_FEATURIZED_DATA <- "data/unlabelled_knots_featurized_resnet18.Rds"
+if(!dir.exists(DATA_DIR)) dir.create(DATA_DIR)
+  
+labelled_image_url <- 'https://isvdemostorageaccount.blob.core.windows.net/wood-knots/labelled_knot_images_png.zip'
+unlabelled_image_url <- 'https://isvdemostorageaccount.blob.core.windows.net/wood-knots/unlabelled_cropped_png.zip'
+names_url <- 'http://www.ee.oulu.fi/research/imag/knots/KNOTS/names.txt'
 
-LABELLED_IMAGE_DIR <- "e:/ml_data/wood_knots/knot_images_png"
-UNLABELLED_IMAGE_DIR <- "e:/ml_data/WOOD/unlabelled_cropped_png"
-
-LABELS_FILE <- "names.txt"
-PSEUDOLABELS_FILE <- "data/unlabelled_knot_info.csv" # We'll pretend these come from our labellers
+# Download and unzip image files
+download.file(labelled_image_url, destfile = file.path(DATA_DIR, 'knot_images_png.zip'))
+download.file(unlabelled_image_url, destfile = file.path(DATA_DIR, 'unlabelled_cropped_png.zip'))
+download.file(names_url, destfile = file.path(DATA_DIR, 'names.txt'))
+unzip(file.path(DATA_DIR, 'knot_images_png.zip'), exdir = DATA_DIR)
+unzip(file.path(DATA_DIR, 'unlabelled_cropped_png.zip'), exdir = DATA_DIR)
 
 
 # I have a beta version that capitalized the model name. This should (?) work for other folks.
