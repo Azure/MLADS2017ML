@@ -24,7 +24,7 @@ Our [label collection website](https://woodknotlabeler.azurewebsites.net) has in
     - Use case: wood knot classification for grading lumber
         - build a classifier to make distinctions the original model was not trained for
         - transfer of low-level features (edges, etc.)
-        - labeled training set: three calsses of knots
+        - labeled training set: three classes of knots
     - Relationship to transfer learning in general
 		- more data lets you tune weights further up the stack of layers
 
