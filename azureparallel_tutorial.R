@@ -9,15 +9,33 @@ library(AzureSMR)
 BLOB_URL_BASE = "https://storage4tomasbatch.blob.core.windows.net/tutorial/";
 
 ## list blob contents
-blob_info <- azureListStorageBlobs(NULL, 
+marker = NULL;
+blob_info = NULL;
+repeat {
+  info <- azureListStorageBlobs(NULL, 
                                    storageAccount = "storage4tomasbatch",
                                    storageKey = "WpJqUKKq+8dgOGIXNlubRVrLu6vdNArNW9sE+cAGdwss1ETSb3P9ihjcSbFBQitAMs7RX/avXtGAYRORhuhHZA==", 
                                    container = "tutorial",
-                                   # prefix = "faces_small")
-                                   prefix = "faces_full") # replace with the full dataset
+                                   marker = marker,
+                                   prefix = "faces_small")
+                                   # prefix = "faces_full") # replace with the full dataset
+  
+  if (is.null(blob_info)) {
+    blob_info = info;
+  } else {
+    blob_info = rbind(blob_info, info)
+  }
+  
+  marker <- attr(info, 'marker');
+  print(paste0("Have ", nrow(blob_info), " blobs"));
+  if (marker == "") {
+    break
+  } else {
+    print("Still more blobs to get")
+  }
+}
 
-
-# preprocess the file names into class (person) names
+# preprocess the file names into urls and class (person) names
 blob_info$url <- paste(BLOB_URL_BASE, sep='', blob_info$name)
 blob_info$fname <- sapply(strsplit(blob_info$name, '/'), function(l) {l[2]})
 blob_info$bname <- sapply(strsplit(blob_info$fname, ".", fixed=TRUE), function(l) l[1])
@@ -45,13 +63,10 @@ parallel_kernel <- function(blob_info) {
 }
 
 ##########################################################################################
-#### Run the parallel kernel
+#### Run the parallel kernel locally
 
-BATCH_SIZE = 14;                             # 27 is two tasks per node on small dataset
-                                             # 14 is one tasks per node on large dataset
-                                             # larger batch size for larger dataset will defray overhead
+BATCH_SIZE = nrow(blob_info);   # do it all in one batch
 NO_BATCHES = ceiling(nrow(blob_info)/BATCH_SIZE);
-setVerbose(TRUE)
 
 #### local execution
 start_time <- Sys.time()
@@ -62,7 +77,18 @@ results <- foreach(i=1:NO_BATCHES ) %do% {  # %do% is the serial version
   parallel_kernel(blob_info[fromRow:toRow,])
 }
 end_time <- Sys.time()
-print(paste0("Ran for ", end_time - start_time, " seconds"))
+print(paste0("Ran for ", as.numeric(end_time - start_time, units="secs"), " seconds"))
+
+## 108 images take ~21 seconds locally (5img/s)
+
+##########################################################################################
+#### Run the parallel kernel
+
+BATCH_SIZE = 14;                            # 27 is two tasks per node on small dataset and small cluster
+                                             # 14 is one tasks per node on small dataset and big cluster
+                                             # larger batch size for larger dataset will defray overhead
+NO_BATCHES = ceiling(nrow(blob_info)/BATCH_SIZE);
+
 
 #### cluster execution
 start_time <- Sys.time()
@@ -73,11 +99,12 @@ results <- foreach(i=1:NO_BATCHES ) %dopar% {     # %dopar% invokes parallel bac
   parallel_kernel(blob_info[fromRow:toRow,])
 }
 end_time <- Sys.time()
-print(paste0("Ran for ", end_time - start_time, " seconds"))
+print(paste0("Ran for ", as.numeric(end_time - start_time, units="secs"), " seconds"))
 
-## 108 images take 20 seconds on small cluster 
-## 108 images take 27 seconds on large cluster 
-## 5k images take 37 seconds on large cluster )
+## 108 images take ~54 seconds on small cluster (2 img/s) 
+## 108 images take ~24 seconds on large cluster (5 img/s) (cluster overhead)
+##  5k images take ~255 seconds on large cluster (20 img/s)
+## 10k images take ~417 seconds on large cluster (23 img/s) (8 nodes -> 0.6x speedup)
 
 
 ##########################################################################################
@@ -85,20 +112,23 @@ print(paste0("Ran for ", end_time - start_time, " seconds"))
 single_df <- Reduce(rbind, results)
 
 # only URLs were processed, turn them into person names
-blob_info$fname <- sapply(strsplit(blob_info$name, '/'), function(l) {l[2]})
-blob_info$bname <- sapply(strsplit(blob_info$fname, ".", fixed=TRUE), function(l) l[1])
-blob_info$pname <- sapply(strsplit(blob_info$fname, "_", fixed=TRUE), 
+single_df$fname <- sapply(strsplit(single_df$url, '/'), function(l) {l[6]})
+single_df$bname <- sapply(strsplit(single_df$fname, ".", fixed=TRUE), function(l) l[1])
+single_df$pname <- sapply(strsplit(single_df$fname, "_", fixed=TRUE), 
                           function(l) paste(l[1:(length(l)-1)], collapse=" "))
 
-# TODO: save results as an Rds, if they are of the right form
+# save results as an Rds
+saveRDS(single_df, "faces_featurized_resnet18.Rds")
 
 #####################################################################################
 # makes sense?
+
 library(tidyr)
 library(ggplot2)
 library(magrittr)
-features <- single_df %>% gather(featname, featval, -bname)        # plot features by file
+features <- single_df %>% gather(featname, featval, -bname, -pname)        # plot features by file
 plottable <- features[startsWith(features$featname, 'Feature'),];
+plottable$featval <- type.convert(plottable$featval);                       # make numeric again
 
 (
   p <- ggplot(plottable, aes(featname, pname)) + 
