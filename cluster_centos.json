@@ -1,5 +1,5 @@
 {
-  "name": "tutorial052",
+  "name": "tutorial053",
   "vmSize": "Standard_D3_v2", 
   "maxTasksPerNode": 1,       
   "poolSize": {
@@ -13,10 +13,9 @@
     },
     "autoscaleFormula": "QUEUE"
   },
-  "containerImage": "rocker/tidyverse:latest",
   "rPackages": {
-    "cran": [ "devtools" ],
-    "github": ["Azure/doAzureParallel@v0.5.1", "Azure/rAzureBatch" ],
+    "cran": [ ],
+    "github": [ ],
     "bioconductor": []
   },
   "commandLine": [

@@ -37,7 +37,7 @@ cluster <- makeCluster("cluster.json")
 cluster2 <- makeCluster("cluster_centos.json")
 
 # 5. Register the pool as your parallel backend
-registerDoAzureParallel(cluster)
+# registerDoAzureParallel(cluster)
 registerDoAzureParallel(cluster2)
 
 # 6. Check that your parallel backend has been registered
