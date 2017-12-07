@@ -138,10 +138,22 @@ sys_info <- function(blob_info) {
 
 parallel_kernel <- function(blob_info) {
   
-  library("MicrosoftML")
+  library(MicrosoftML)
+  library(utils)
+  
+  # get the images from blob and do them locally
+  DATA_DIR <- file.path(getwd(), 'data');
+  if(!dir.exists(DATA_DIR)) dir.create(DATA_DIR);
+  
+  # do this in paralell, too
+  for (i in 1:nrow(blob_info)) {
+    download.file(blob_info$url[[i]], destfile = file.path(DATA_DIR, blob_info$fname[[i]]))
+  }
+  
+  blob_info$localname <- paste(DATA_DIR, sep='/', blob_info$fname);
   
   image_features <- rxFeaturize(data = blob_info,
-                             mlTransforms = list(loadImage(vars = list(Image = "url")),
+                             mlTransforms = list(loadImage(vars = list(Image = "localname")),
                                                  resizeImage(vars = list(Features = "Image"),
                                                              width = 224, height = 224,
                                                              resizingOption = "IsoPad"),
@@ -219,7 +231,7 @@ setVerbose(TRUE)
 
 # results  <- foreach(i=1:NO_BATCHES, .packages=c("MicrosoftML")) %dopar% {
   
-results <- foreach(i=1:NO_BATCHES ) %dopar% {
+results <- foreach(i=1:NO_BATCHES ) %do% {
   N = nrow(blob_info);
   fromRow = (i-1)*BATCH_SIZE+1;
   toRow = min(i*BATCH_SIZE, N);
@@ -248,8 +260,7 @@ plottable$fname <- sapply(strsplit(plottable$url, '/'), function(l) {l[6]})
 plottable$bname <- sapply(strsplit(plottable$fname, ".", fixed=TRUE), function(l) l[1])
 plottable$pname <- sapply(strsplit(plottable$fname, "_", fixed=TRUE), 
                           function(l) paste(l[1:(length(l)-1)], collapse=" "))
-
-plottable <- plottable 
+plottable$featval <- type.convert(plottable$featval); 
 
 (
   p <- ggplot(plottable, aes(featname, pname)) + 
@@ -257,4 +268,16 @@ plottable <- plottable
       scale_fill_gradient(low = "white",high = "steelblue")
 )
 
+################################
+
+# just run this
+image_features <- rxFeaturize(data = blob_info,
+                              mlTransforms = list(loadImage(vars = list(Image = "url")),
+                                                  resizeImage(vars = list(Features = "Image"),
+                                                              width = 224, height = 224,
+                                                              resizingOption = "IsoPad"),
+                                                  extractPixels(vars = "Features")
+                                                ),
+                              mlTransformVars = c("url"),
+                              reportProgress=1);
 
