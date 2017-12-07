@@ -1,5 +1,14 @@
+# sCRIPT that featurizes all images
 
-# Featurize all images
+# DATA SOURCE:
+# 
+# These images are from the University of Oulu, Finland (http://www.ee.oulu.fi/~olli/Projects/Lumber.Grading.html).
+# The labelled images (http://www.ee.oulu.fi/research/imag/knots/KNOTS) were saved as individual knot images by the original authors, 
+# and we segmented the "unlabelled" images by hand using LabelImg (https://github.com/tzutalin/labelImg). 
+# We have converted all of the individual knot images to PNG format, and in this script we download zip files containing PNG versions
+# of the labelled images and the segmented unlabelled images from Azure blob storage.
+
+
 DATA_DIR <- file.path(getwd(), 'data')
 
 LABELLED_FEATURIZED_DATA <- file.path(DATA_DIR, "labelled_knots_featurized_resnet18.Rds")
@@ -9,14 +18,13 @@ LABELLED_IMAGE_DIR <- file.path(DATA_DIR, "knot_images_png")
 UNLABELLED_IMAGE_DIR <- file.path(DATA_DIR, "unlabelled_cropped_png")
 
 LABELS_FILE <- file.path(DATA_DIR, "names.txt")
-# PSEUDOLABELS_FILE <- file.path(DATA_DIR, "unlabelled_knot_info.csv") # We'll pretend these come from our labellers
 
 # All knot classes
 KNOT_CLASSES <- setNames(nm=c("sound_knot", "dry_knot", "encased_knot"))
 
 
 if(!dir.exists(DATA_DIR)) dir.create(DATA_DIR)
-  
+
 labelled_image_url <- 'https://isvdemostorageaccount.blob.core.windows.net/wood-knots/labelled_knot_images_png.zip'
 unlabelled_image_url <- 'https://isvdemostorageaccount.blob.core.windows.net/wood-knots/unlabelled_cropped_png.zip'
 names_url <- 'http://www.ee.oulu.fi/research/imag/knots/KNOTS/names.txt'
@@ -82,4 +90,3 @@ if( file.exists(LABELLED_FEATURIZED_DATA)){
   
   saveRDS(labelled_knot_data_df, LABELLED_FEATURIZED_DATA)
 }
-
