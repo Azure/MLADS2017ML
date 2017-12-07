@@ -2,7 +2,7 @@
 
 ## Image Featurization
 
-The use case (labeling knots in lumber) and concepts of image featurization are described in our blog post entitled [Featurizing Images: the shallow end of deep learning](blog.revolutionanalytics.com/2017/09/wood-knots.html). Briefly, a pre-trained DNN image classification model is used to generate features for a set of images, which are then used to train a custom classifier. This is the simplest form of transfer learning, where the values leading into the last layer of the network are used as features, and we do not use backpropagation on the original DNN model.
+The use case (labeling knots in lumber) and concepts of image featurization are described in our blog post entitled [Featurizing Images: the shallow end of deep learning](http://blog.revolutionanalytics.com/2017/09/wood-knots.html). Briefly, a pre-trained DNN image classification model is used to generate features for a set of images, which are then used to train a custom classifier. This is the simplest form of transfer learning, where the values leading into the last layer of the network are used as features, and we do not use backpropagation on the original DNN model.
 
 These images are from the [University of Oulu](http://www.ee.oulu.fi/~olli/Projects/Lumber.Grading.html), Finland. The [labelled images](http://www.ee.oulu.fi/research/imag/knots/KNOTS) were saved as individual knot images by the original authors, and we segmented the "unlabelled" images by hand using [LabelImg](https://github.com/tzutalin/labelImg). We have converted all of the individual knot images to PNG format, and you can download zip files containing PNG versions of the [labelled images](https://isvdemostorageaccount.blob.core.windows.net/wood-knots/labelled_knot_images_png.zip) and the [segmented unlabelled images](https://isvdemostorageaccount.blob.core.windows.net/wood-knots/unlabelled_cropped_png.zip) from Azure blob storage.
 
@@ -24,7 +24,7 @@ Our [label collection website](https://woodknotlabeler.azurewebsites.net) has in
     - Use case: wood knot classification for grading lumber
         - build a classifier to make distinctions the original model was not trained for
         - transfer of low-level features (edges, etc.)
-        - labeled training set: three calsses of knots
+        - labeled training set: three classes of knots
     - Relationship to transfer learning in general
 		- more data lets you tune weights further up the stack of layers
 

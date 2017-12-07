@@ -44,13 +44,13 @@ MONTE_CARLO_SAMPLES <- 100
 # This order determines the order of factor levels
 KNOT_CLASSES <- setNames(nm=c("sound_knot", "dry_knot", "encased_knot"))
 
-LABELLED_FEATURIZED_DATA <- "labelled_knots_featurized_resnet18.Rds"
-UNLABELLED_FEATURIZED_DATA <- "unlabelled_knots_featurized_large_resnet18.Rds"
+LABELLED_FEATURIZED_DATA <- "data/labelled_knots_featurized_resnet18.Rds"
+UNLABELLED_FEATURIZED_DATA <- "data/unlabelled_knots_featurized_large_resnet18.Rds"
 
 unlabelled_knot_data_df <- readRDS(UNLABELLED_FEATURIZED_DATA)
 labelled_knot_data_df <- readRDS(LABELLED_FEATURIZED_DATA)
 
-PSEUDOLABELS_FILE <- "unlabelled_knot_info_area_small.csv" # "unlabelled_knot_info.csv" # We'll pretend these come from our labellers
+PSEUDOLABELS_FILE <- "data/unlabelled_knot_info_area_small.csv" # "unlabelled_knot_info.csv" # We'll pretend these come from our labellers
 
 inputs <- grep("^Feature", names(labelled_knot_data_df), value=TRUE)
 outcome <- "knot_class"
@@ -77,8 +77,8 @@ table(initial_training_set$knot_class)
 table(initial_training_set$knot_class)/nrow(initial_training_set)
 ```
 ```{r save_training_and_test_sets}
-saveRDS(TEST_SET, "test_set.Rds")
-saveRDS(initial_training_set, "initial_training_set.Rds")
+saveRDS(TEST_SET, "data/test_set.Rds")
+saveRDS(initial_training_set, "data/initial_training_set.Rds")
 
 ```
 
@@ -284,7 +284,7 @@ random_sample_results <- sapply(1:MONTE_CARLO_SAMPLES, function(i){
 
 
 ```{r save_random_sample_results}
-saveRDS(random_sample_results, sprintf("random_sample_results_iteration%02d.Rds", NUM_ITERATIONS))
+saveRDS(random_sample_results, sprintf("data/random_sample_results_iteration%02d.Rds", NUM_ITERATIONS))
 ```
 
 
@@ -320,7 +320,7 @@ plot_class_separation(full_model_results$test_predictions)
 
 ```
 ```{r save_training_set_full}
-# saveRDS(training_set_full, "training_set_full.Rds")
-# saveRDS(test_set, "test_set.Rds")
+# saveRDS(training_set_full, "data/training_set_full.Rds")
+# saveRDS(test_set, "data/test_set.Rds")
 ```
 
