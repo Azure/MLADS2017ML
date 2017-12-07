@@ -1,5 +1,16 @@
 # Image classification workshop using featurization and active learning
 
+## Setup
+
+* Create a Data Science Virtual Machine - Windows 2016 using VM size DS13_v2 (8 vcpus)
+* Launch “git bash” on the Data Science Virtual Machine
+* In git bash, run this command: git clone https://github.com/Azure/MLADS2017ML.git
+* Open 1_woodknots_active_learning_workshop.Rmd in RStudio and click “Knit”.
+* Optional: Set up an Azure Batch account for use with doAzureParallel, as described here: https://github.com/Azure/doAzureParallel
+* Open azureparallel_setup.R in RStudio and optionally run the lines to launch one or both Azure Batch clusters.
+* Open azureparallel_tutorial.R and run the code, choosing the small or large data sets.
+
+
 ## Image Featurization
 
 The use case (labeling knots in lumber) and concepts of image featurization are described in our blog post entitled [Featurizing Images: the shallow end of deep learning](http://blog.revolutionanalytics.com/2017/09/wood-knots.html). Briefly, a pre-trained DNN image classification model is used to generate features for a set of images, which are then used to train a custom classifier. This is the simplest form of transfer learning, where the values leading into the last layer of the network are used as features, and we do not use backpropagation on the original DNN model.
