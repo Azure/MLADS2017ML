@@ -55,10 +55,22 @@ blob_info <- get_blob_info(storageAccount, storageKey, container, prefix = "face
 # Parallel kernel for featurization
 parallel_kernel <- function(blob_info) {
   
-  library("MicrosoftML")
+  library(MicrosoftML)
+  library(utils)
+  
+  # get the images from blob and do them locally
+  DATA_DIR <- file.path(getwd(), 'localdata');
+  if(!dir.exists(DATA_DIR)) dir.create(DATA_DIR);
+  
+  # do this in paralell, too
+  for (i in 1:nrow(blob_info)) {
+    download.file(blob_info$url[[i]], destfile = file.path(DATA_DIR, blob_info$fname[[i]]))
+  }
+  
+  blob_info$localname <- paste(DATA_DIR, sep='/', blob_info$fname);
   
   image_features <- rxFeaturize(data = blob_info,
-                                mlTransforms = list(loadImage(vars = list(Image = "url")),
+                                mlTransforms = list(loadImage(vars = list(Image = "localname")),
                                                     resizeImage(vars = list(Features = "Image"),
                                                                 width = 224, height = 224,
                                                                 resizingOption = "IsoPad"),
@@ -69,6 +81,7 @@ parallel_kernel <- function(blob_info) {
                                 reportProgress=1)
   image_features
 }
+
 
 ##########################################################################################
 #### Run the parallel kernel locally
@@ -92,7 +105,7 @@ print(paste0("Ran for ", as.numeric(end_time - start_time, units="secs"), " seco
 ##########################################################################################
 #### Run the parallel kernel
 
-BATCH_SIZE = 200;                            # 27 is two tasks per node on small dataset and small cluster
+BATCH_SIZE = 14;                            # 27 is two tasks per node on small dataset and small cluster
                                              # 14 is one tasks per node on small dataset and big cluster
                                              # larger batch size for larger dataset will defray overhead
 NO_BATCHES = ceiling(nrow(blob_info)/BATCH_SIZE);
