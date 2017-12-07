@@ -277,7 +277,22 @@ mapply(plot, x=initial_model_results$roc_list, main=names(initial_model_results$
 ## 4 0.4025992
 ## 5 0.4152864
 ## 6 0.4275556</code></pre>
-<pre class="r"><code>new_sample &lt;- initial_model_results$selected %&gt;% pseudolabel_function %&gt;% get_new_pseudolabelled_sample
+<pre class="r"><code>(initial_model_results$selected_labelled &lt;- initial_model_results$selected %&gt;% pseudolabel_function)</code></pre>
+<pre><code>##               path   pred_class sound_knot  dry_knot encased_knot
+## 1 st1568_knot2.png   sound_knot  0.3905281 0.3124349    0.2970370
+## 2 st1454_knot1.png   sound_knot  0.4017069 0.3780740    0.2202190
+## 3 st1116_knot0.png     dry_knot  0.3921232 0.3983140    0.2095627
+## 4 st1176_knot1.png     dry_knot  0.3979095 0.4025992    0.1994913
+## 5 st1487_knot1.png encased_knot  0.3379171 0.2467965    0.4152864
+## 6 st1125_knot0.png encased_knot  0.1813806 0.3910638    0.4275556
+##    max_prob knot_class
+## 1 0.3905281 sound_knot
+## 2 0.4017069 sound_knot
+## 3 0.3983140   dry_knot
+## 4 0.4025992 sound_knot
+## 5 0.4152864   dry_knot
+## 6 0.4275556   dry_knot</code></pre>
+<pre class="r"><code>new_sample &lt;- initial_model_results$selected_labelled %&gt;% get_new_pseudolabelled_sample
 
 current_training_set &lt;- rbind(initial_training_set, new_sample[names(initial_training_set)])
 
@@ -297,16 +312,16 @@ iteration_results &lt;- lapply(1:NUM_ITERATIONS, function(i){
 
   results
 })</code></pre>
-<pre><code>## Elapsed time: 00:00:00.1575385
-## Elapsed time: 00:00:00.1561940
-## Elapsed time: 00:00:00.1563304
-## Elapsed time: 00:00:00.1577624
-## Elapsed time: 00:00:00.1491010
-## Elapsed time: 00:00:00.1529172
-## Elapsed time: 00:00:00.1552428
-## Elapsed time: 00:00:00.1568482
-## Elapsed time: 00:00:00.1576776
-## Elapsed time: 00:00:00.1505672</code></pre>
+<pre><code>## Elapsed time: 00:00:00.1713261
+## Elapsed time: 00:00:00.1758444
+## Elapsed time: 00:00:00.1718233
+## Elapsed time: 00:00:00.1777573
+## Elapsed time: 00:00:00.1709022
+## Elapsed time: 00:00:00.1697694
+## Elapsed time: 00:00:00.1751214
+## Elapsed time: 00:00:00.1861378
+## Elapsed time: 00:00:00.1764492
+## Elapsed time: 00:00:00.1769460</code></pre>
 <p>These are the cases selected at each iteration, together with the scores produced by the model for that iteration. The <code>knot_class</code> column was added by the pseudolabelling function.</p>
 <pre class="r"><code>lapply(iteration_results, function(ires) ires$selected_labelled)</code></pre>
 <pre><code>## [[1]]

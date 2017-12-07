@@ -1,6 +1,9 @@
 # Secret file (DB passwords, etc.)
 secret.R
 
+# R projects
+MLADS2017ML.Rproj
+
 # knitr files directories
 /*_files/
 
@@ -25,6 +28,7 @@ secret.R
 
 # RStudio files
 .Rproj.user/
+*.Rproj
 
 # produced vignettes
 vignettes/*.html
@@ -41,3 +45,5 @@ vignettes/*.pdf
 *.utf8.md
 *.knit.md
 .Rproj.user
+/.vs/slnx.sqlite
+/credentials.json

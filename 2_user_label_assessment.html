@@ -129,202 +129,113 @@ $(document).ready(function () {
 <div id="performance-of-models-trained-on-user-labeled-data" class="section level2">
 <h2>Performance of models trained on user-labeled data</h2>
 <p>Here we add the labels provided by each user to the initial training set and assess the effects of this newly labelled data on model performance.</p>
-<pre class="r"><code>### Libraries ###
-library(dplyr)
-library(pROC)
-
-### Meta-hyperparameters ###
-set.seed(1)  ###
-
-L1_PENALTY &lt;- 1e-2
-L2_PENALTY &lt;- 1e-2
-
-INITIAL_EXAMPLES_PER_CLASS &lt;- 6  # cases from the labelled dataset used to train the initial model
-
-# This order determines the order of factor levels
-KNOT_CLASSES &lt;- setNames(nm=c(&quot;sound_knot&quot;, &quot;dry_knot&quot;, &quot;encased_knot&quot;))
-
-LABELLED_FEATURIZED_DATA &lt;- &quot;labelled_knots_featurized_resnet18.Rds&quot;
-UNLABELLED_FEATURIZED_DATA &lt;- &quot;unlabelled_knots_featurized_resnet18.Rds&quot;
-
-unlabelled_knot_data_df &lt;- readRDS(UNLABELLED_FEATURIZED_DATA)
-# labelled_knot_data_df &lt;- readRDS(LABELLED_FEATURIZED_DATA)
-
-TEST_SET &lt;- readRDS(&quot;test_set.Rds&quot;)
-INITIAL_TRAINING_SET &lt;- readRDS(&quot;initial_training_set.Rds&quot;)
-
-inputs &lt;- grep(&quot;^Feature&quot;, names(INITIAL_TRAINING_SET), value=TRUE)
-outcome &lt;- &quot;knot_class&quot;
-FORM &lt;- formula(paste(outcome, paste(inputs, collapse=&quot;+&quot;), sep=&quot;~&quot;))</code></pre>
-<pre class="r"><code>source(&quot;secret.R&quot;)
-
-conn_info &lt;- list(
-  Driver=&quot;{ODBC Driver 13 for SQL Server}&quot;,
-  Server=&quot;tcp:jichangserver.database.windows.net,1433&quot;,
-  Database=&quot;woodknots&quot;,
-  Uid=secret$Uid,
-  Pwd=secret$Pwd,
-  Encrypt=&quot;yes&quot;,
-  TrustServerCertificate=&quot;no&quot;,
-  `Connection Timeout`=&quot;30;&quot;
-)
-
-conn_str &lt;- paste(paste(names(conn_info), conn_info, sep=&quot;=&quot;), collapse=&quot;;&quot;)
-
-
-library(RODBC)
-dbhandle &lt;- odbcDriverConnect(conn_str)
-sql &lt;- function(q) sqlQuery(dbhandle, q) # same syntax as sqldf
-
-# sql(&quot;SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE='BASE TABLE'&quot;)
-
-# sql(&quot;SELECT top 5 * FROM UserKnotLabel&quot;)
-
-  
-(user_knot_labels &lt;- sql(&quot;SELECT substring(userid, 1, 7) as user_id, knotname, label_value + '_knot' as knot_class, ukl.labeltime labeltime
-                          FROM UserKnotLabel ukl JOIN Label ON ukl.labelid = Label.label_id
-                            WHERE ukl.labeltime &gt; CONVERT(datetime, '2017-11-22 04:45:00', 120)
-                            -- AND ukl.labeltime &lt; CONVERT(datetime, '2017-11-22 06:00:00', 120)
-                            ORDER BY user_id, ukl.labeltime&quot;))</code></pre>
-<pre><code>##    user_id         knotname   knot_class           labeltime
-## 1  097d11c st1822_knot1.png   sound_knot 2017-11-22 05:01:32
-## 2  097d11c st1747_knot1.png     dry_knot 2017-11-22 05:01:44
-## 3  097d11c st1324_knot1.png   sound_knot 2017-11-22 05:01:46
-## 4  097d11c st1171_knot0.png encased_knot 2017-11-22 05:01:49
-## 5  097d11c st1165_knot0.png   sound_knot 2017-11-22 05:01:53
-## 6  2321bcd st1822_knot1.png   sound_knot 2017-12-01 02:32:37
-## 7  2321bcd st1747_knot1.png     dry_knot 2017-12-01 02:32:38
-## 8  2321bcd st1324_knot1.png     dry_knot 2017-12-01 02:32:39
-## 9  2321bcd st1171_knot0.png     dry_knot 2017-12-01 02:32:41
-## 10 2321bcd st1165_knot0.png   sound_knot 2017-12-01 02:32:42
-## 11 2321bcd st1112_knot0.png encased_knot 2017-12-01 02:32:53
-## 12 3dafaa1 st1822_knot1.png   sound_knot 2017-11-22 04:57:56
-## 13 3dafaa1 st1747_knot1.png     dry_knot 2017-11-22 04:57:58
-## 14 3dafaa1 st1324_knot1.png encased_knot 2017-11-22 04:58:02
-## 15 3dafaa1 st1171_knot0.png encased_knot 2017-11-22 04:58:10
-## 16 3dafaa1 st1165_knot0.png   sound_knot 2017-11-22 04:58:12
-## 17 479504e st1822_knot1.png   sound_knot 2017-12-01 03:12:36
-## 18 479504e st1747_knot1.png     dry_knot 2017-12-01 03:12:37
-## 19 479504e st1324_knot1.png     dry_knot 2017-12-01 03:12:38
-## 20 479504e st1171_knot0.png     dry_knot 2017-12-01 03:12:39
-## 21 479504e st1165_knot0.png   sound_knot 2017-12-01 03:12:42
-## 22 58afded st1822_knot1.png encased_knot 2017-11-22 04:55:41
-## 23 58afded st1747_knot1.png encased_knot 2017-11-22 04:55:42
-## 24 58afded st1324_knot1.png encased_knot 2017-11-22 04:55:43
-## 25 58afded st1171_knot0.png encased_knot 2017-11-22 04:55:46
-## 26 58afded st1165_knot0.png encased_knot 2017-11-22 04:55:47
-## 27 58afded st1112_knot0.png encased_knot 2017-11-22 04:55:49
-## 28 65e8998 st1822_knot1.png   sound_knot 2017-12-01 03:05:19
-## 29 65e8998 st1747_knot1.png     dry_knot 2017-12-01 03:05:20
-## 30 65e8998 st1324_knot1.png     dry_knot 2017-12-01 03:05:23
-## 31 65e8998 st1165_knot0.png   sound_knot 2017-12-01 03:05:25
-## 32 6c766a0 st1822_knot1.png   sound_knot 2017-11-22 04:54:07
-## 33 6c766a0 st1747_knot1.png     dry_knot 2017-11-22 04:54:11
-## 34 6c766a0 st1165_knot0.png   sound_knot 2017-11-22 04:54:27
-## 35 6c766a0 st1171_knot0.png     dry_knot 2017-11-22 04:54:37
-## 36 8b8f578 st1822_knot1.png   sound_knot 2017-11-22 04:55:52
-## 37 8b8f578 st1747_knot1.png     dry_knot 2017-11-22 04:55:56
-## 38 8b8f578 st1324_knot1.png encased_knot 2017-11-22 04:55:58
-## 39 8b8f578 st1171_knot0.png encased_knot 2017-11-22 04:56:09
-## 40 8b8f578 st1165_knot0.png   sound_knot 2017-11-22 04:56:13
-## 41 8c6829d st1747_knot1.png encased_knot 2017-11-22 05:02:47
-## 42 a5de636 st1822_knot1.png   sound_knot 2017-11-22 04:55:50
-## 43 a5de636 st1747_knot1.png     dry_knot 2017-11-22 04:55:53
-## 44 a5de636 st1171_knot0.png     dry_knot 2017-11-22 04:56:02
-## 45 a5de636 st1165_knot0.png   sound_knot 2017-11-22 04:56:04
-## 46 a5de636 st1171_knot0.png encased_knot 2017-11-22 04:56:42
-## 47 a5de636 st1171_knot0.png     dry_knot 2017-11-22 04:56:51
-## 48 e7a838f st1822_knot1.png   sound_knot 2017-11-22 04:55:37
-## 49 e7a838f st1747_knot1.png     dry_knot 2017-11-22 04:55:41
-## 50 e7a838f st1171_knot0.png encased_knot 2017-11-22 04:55:50
-## 51 e7a838f st1165_knot0.png   sound_knot 2017-11-22 04:55:52</code></pre>
-<pre class="r"><code># class_samples &lt;- lapply(KNOT_CLASSES, function(kc) sample(which(labelled_knot_data_df$knot_class == kc), INITIAL_EXAMPLES_PER_CLASS))
-# 
-# in_training_set &lt;- (1:nrow(labelled_knot_data_df) %in% unlist(class_samples))
-# 
-# initial_training_set &lt;- labelled_knot_data_df[in_training_set,]
-# TEST_SET &lt;- labelled_knot_data_df[!in_training_set,]
-
-
-source(&quot;woodknots_active_learning_lib.R&quot;)</code></pre>
-</div>
-<div id="official-results" class="section level2">
-<h2>“Official” results</h2>
-<p>These are the results using the official labels for the new knots.</p>
-<pre class="r"><code>official &lt;- data.frame(
-    user_id=rep(&quot;correct&quot;, 6),
-    knotname=c(&quot;st1822_knot1.png&quot;, &quot;st1747_knot1.png&quot;, &quot;st1324_knot1.png&quot;, &quot;st1171_knot0.png&quot;, &quot;st1165_knot0.png&quot;, &quot;st1112_knot0.png&quot;), 
-    knot_class=c(&quot;sound_knot&quot;, &quot;dry_knot&quot;, &quot;dry_knot&quot;, &quot;dry_knot&quot;, &quot;sound_knot&quot;, NA),
-    stringsAsFactors=FALSE)
-
-official$labeltime &lt;- Sys.time()
-
-official$knot_class &lt;- factor(official$knot_class, levels=levels(user_knot_labels$knot_class))
-
-row.names(official) &lt;- official$knotname
-
-official</code></pre>
-<pre><code>##                  user_id         knotname knot_class           labeltime
-## st1822_knot1.png correct st1822_knot1.png sound_knot 2017-11-30 19:13:04
-## st1747_knot1.png correct st1747_knot1.png   dry_knot 2017-11-30 19:13:04
-## st1324_knot1.png correct st1324_knot1.png   dry_knot 2017-11-30 19:13:04
-## st1171_knot0.png correct st1171_knot0.png   dry_knot 2017-11-30 19:13:04
-## st1165_knot0.png correct st1165_knot0.png sound_knot 2017-11-30 19:13:04
-## st1112_knot0.png correct st1112_knot0.png       &lt;NA&gt; 2017-11-30 19:13:04</code></pre>
-<pre class="r"><code>official_cases &lt;- unlabelled_knot_data_df %&gt;%
-                  filter(path %in% official$knotname)
-
-official_cases$knot_class &lt;- official[official_cases$path, &quot;knot_class&quot;]
-
-new_training_set &lt;- rbind(INITIAL_TRAINING_SET, official_cases)
-
-(official_results &lt;- fit_and_evaluate_model(new_training_set)$performance)</code></pre>
-<pre><code>##    accuracy   auc_sound     auc_dry auc_encased  negentropy 
-##   0.8185328   0.9421965   0.9332685   0.8494842  -0.5977660</code></pre>
 </div>
 <div id="user-labels" class="section level1">
 <h1>User labels</h1>
 <p>These are the labels collected from workshop participants.</p>
-<pre class="r"><code>user_id_vec &lt;- setNames(nm=levels(user_knot_labels$user_id))
-
-user_results &lt;- lapply(user_id_vec, function(userID){
-  user_labels &lt;- user_knot_labels %&gt;% 
-                    filter(user_id == userID) %&gt;% 
-                    group_by(knotname) %&gt;% 
-                    filter(labeltime==max(labeltime)) %&gt;% # only keep the last label they chose
-                    as.data.frame
-  
-  row.names(user_labels) &lt;- user_labels$knotname
-
-  user_cases &lt;- unlabelled_knot_data_df %&gt;%
-                    filter(path %in% user_labels$knotname)
-
-  user_cases$knot_class &lt;- user_labels[user_cases$path, &quot;knot_class&quot;]
-
-  user_training_set &lt;- rbind(INITIAL_TRAINING_SET, user_cases)
-
-  fit_and_evaluate_model(user_training_set)
-})
-
-
-(user_results_matrix &lt;- user_results %&gt;% sapply(function(ures) ures$performance) %&gt;% t)</code></pre>
-<pre><code>##          accuracy auc_sound   auc_dry auc_encased negentropy
-## 097d11c 0.7683398 0.9053636 0.8775510   0.8467207 -0.6332237
-## 2321bcd 0.7876448 0.9294260 0.9300292   0.8347458 -0.6187272
-## 3dafaa1 0.7683398 0.9241161 0.8848397   0.8848563 -0.6605652
-## 479504e 0.8185328 0.9421965 0.9332685   0.8494842 -0.5977660
-## 58afded 0.6718147 0.9264686 0.8361678   0.8603537 -0.7581912
-## 65e8998 0.7760618 0.9069095 0.8921283   0.8668018 -0.6470840
-## 6c766a0 0.7992278 0.9291571 0.9348073   0.8509580 -0.6151230
-## 8b8f578 0.7683398 0.9241161 0.8848397   0.8848563 -0.6605652
-## 8c6829d 0.7258687 0.9203522 0.8086330   0.8485630 -0.7530103
-## a5de636 0.7992278 0.9291571 0.9348073   0.8509580 -0.6151230
-## e7a838f 0.7760618 0.9201506 0.8836249   0.8618276 -0.6506486</code></pre>
-<pre class="r"><code>official_results</code></pre>
-<pre><code>##    accuracy   auc_sound     auc_dry auc_encased  negentropy 
-##   0.8185328   0.9421965   0.9332685   0.8494842  -0.5977660</code></pre>
-<p>User id <code>58afded</code> was a test where I just entered <code>encased_knot</code> for each knot. As expected, this led to poor performance.</p>
-<p>Note that 0 percent of the participant labels led to models with better accuracy than the “official” labels. Part of the reason for this appears to be that the official images include many that are very low resolution. Since the workshop last week, I have removed the lowest resolution images, and the performance of the actively learned model has improved. Still, even with the poor quality images, active learning clearly pays off after a few rounds.</p>
+<pre><code>##    user_id         knotname   knot_class           labeltime
+## 1  0031447 st1568_knot2.png   sound_knot 2017-12-01 21:38:55
+## 2  0031447 st1454_knot1.png   sound_knot 2017-12-01 21:38:56
+## 3  0031447 st1116_knot0.png     dry_knot 2017-12-01 21:38:57
+## 4  0031447 st1176_knot1.png   sound_knot 2017-12-01 21:38:59
+## 5  0031447 st1487_knot1.png encased_knot 2017-12-01 21:39:00
+## 6  0031447 st1125_knot0.png     dry_knot 2017-12-01 21:39:04
+## 7  2b5d02b st1454_knot1.png   sound_knot 2017-12-01 21:19:27
+## 8  2b5d02b st1116_knot0.png     dry_knot 2017-12-01 21:19:29
+## 9  2b5d02b st1176_knot1.png   sound_knot 2017-12-01 21:19:31
+## 10 2b5d02b st1487_knot1.png     dry_knot 2017-12-01 21:19:34
+## 11 2b5d02b st1125_knot0.png encased_knot 2017-12-01 21:19:36
+## 12 56f0dc9 st1568_knot2.png encased_knot 2017-12-01 21:43:45
+## 13 56f0dc9 st1454_knot1.png encased_knot 2017-12-01 21:43:47
+## 14 56f0dc9 st1116_knot0.png   sound_knot 2017-12-01 21:43:52
+## 15 56f0dc9 st1176_knot1.png encased_knot 2017-12-01 21:43:55
+## 16 56f0dc9 st1487_knot1.png   sound_knot 2017-12-01 21:43:57
+## 17 56f0dc9 st1125_knot0.png   sound_knot 2017-12-01 21:43:59
+## 18 8b0ace2 st1568_knot2.png   sound_knot 2017-12-01 21:40:30
+## 19 8b0ace2 st1454_knot1.png   sound_knot 2017-12-01 21:40:31
+## 20 8b0ace2 st1116_knot0.png     dry_knot 2017-12-01 21:40:33
+## 21 8b0ace2 st1176_knot1.png   sound_knot 2017-12-01 21:40:34
+## 22 8b0ace2 st1487_knot1.png encased_knot 2017-12-01 21:40:35
+## 23 8b0ace2 st1125_knot0.png encased_knot 2017-12-01 21:40:43
+## 24 dd5d5f5 st1568_knot2.png   sound_knot 2017-12-01 21:36:24
+## 25 dd5d5f5 st1454_knot1.png   sound_knot 2017-12-01 21:36:25
+## 26 dd5d5f5 st1116_knot0.png     dry_knot 2017-12-01 21:36:26
+## 27 dd5d5f5 st1176_knot1.png   sound_knot 2017-12-01 21:36:27
+## 28 dd5d5f5 st1487_knot1.png     dry_knot 2017-12-01 21:36:28
+## 29 dd5d5f5 st1125_knot0.png     dry_knot 2017-12-01 21:36:30
+## 30 e3dfa32 st1568_knot2.png   sound_knot 2017-12-01 21:22:33
+## 31 e3dfa32 st1454_knot1.png   sound_knot 2017-12-01 21:22:34
+## 32 e3dfa32 st1116_knot0.png     dry_knot 2017-12-01 21:22:35
+## 33 e3dfa32 st1176_knot1.png   sound_knot 2017-12-01 21:22:36
+## 34 e3dfa32 st1487_knot1.png encased_knot 2017-12-01 21:22:37
+## 35 e3dfa32 st1125_knot0.png encased_knot 2017-12-01 21:22:39</code></pre>
+</div>
+<div id="user-results" class="section level1">
+<h1>User Results</h1>
+<p>These are the performance scores for models built with the initial training set plus the new cases as labelled by each user.</p>
+<p><img src="data:image/png;base64,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fOlsw7WyhnYy85EGA5SansTt0+1mQJ/dvv5Pkw5+437188ITndOAHi218ai69lvNGeq4fpZ0XuEnhyuP4UM7mftQg+FJTU/i9ul2M6DT15DKTJb5e/j18fjaj6pfHa+38WRy+lmcHpVhLbf8y0fFw/JRf0tAP1sLzZT7UIPhSW/F8GwhoJMTzZuPit+/W75uNMnfu7OzytaA1k+YTh6x35g+UVqfoR41D92PxgIKuyi1FEO0hYAez9J3q3rUPqnp6XvTV+GXA/rq+9NXksqNlp4wnZyN1hsuvdup8BAedkTqg9/E7dPt5kP4qZPJueNJc+rZnFCun4FOnyQtnw9dell++nzotz0HCjspNT2J26fb7YCWJ5hPDpeeylwPaPOWpiagSyebH1avRHkRCXZTanoSt0+36wGd97F572f9xqXFV+E3n4E2vI0JdlNqehK3T7eTAV16B+fsbPNkPDsDnb7/s/rnxudApxbflS+gsDtS05O4fbqdDOj09fM6h0cLryi1fhKp5VX44/rnKpyz5wAEFHZLanoSt0+3mwGtXz9/+nZ1zjm58Nb95Vfhm8/HN5+Fn9zgVvVi++x9oB8eluWt3h9a/rxyAiqgsBtS05O4fbrdDOj09fNX75cXTuq31R/cKWYBnX5D0/RT8mufRKrOQ9+rf179LhEBhd2Qmp7E7dPtaEDrb/K82ZTvafndn9XnOufPfj4t313/VnODh19v+Sx8ff3sZwGFXZOansTt0+1qQC9UaCdzH2owPKnpSdw+nYB23cnchxoMT2p6ErdPJ6BddzL3oQbDk5qexO3TCWjXncx9qMHwpKYncft0Atp1J3MfajA8qelJ3D6dgHbdydyHGgxPanoSt08noF13MvehBsOTmp7E7dMJaNedzH2owfCkpidx+3QC2nUncx9qMDyp6UncPp2Adt3J3IcaDE9qehK3TyegXXcy96EGw5OansTt0wlo153MfajB8KSmJ3H7dALadSdzH2owPKnpSdw+nYB23cnchxoMT2p6ErdPJ6BddzL3oQbDk5qexO3TCWjXncx9qMHwpKYncft0Atp1J3MfajA8qelJ3D6dgHbdydyHGgxPanoSt08noF13MvehBsOTmp7E7dMJaNedzH2owfCkpidx+3QC2nUncx9qMDyp6UncPp2Adt3J3IcaDE9qehK3TyegXXcy96EGw5Oa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" width="672" /></p>
+<table>
+<thead>
+<tr class="header">
+<th align="right">accuracy</th>
+<th align="right">auc_sound</th>
+<th align="right">auc_dry</th>
+<th align="right">auc_encased</th>
+<th align="right">negentropy</th>
+<th align="left">user_id</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">0.8108108</td>
+<td align="right">0.9286194</td>
+<td align="right">0.8834629</td>
+<td align="right">0.9075166</td>
+<td align="right">-0.6671861</td>
+<td align="left">0031447</td>
+</tr>
+<tr class="even">
+<td align="right">0.8030888</td>
+<td align="right">0.9276112</td>
+<td align="right">0.9067055</td>
+<td align="right">0.8778556</td>
+<td align="right">-0.6569905</td>
+<td align="left">dd5d5f5</td>
+</tr>
+<tr class="odd">
+<td align="right">0.7992278</td>
+<td align="right">0.9407178</td>
+<td align="right">0.8861354</td>
+<td align="right">0.8537214</td>
+<td align="right">-0.6916373</td>
+<td align="left">2b5d02b</td>
+</tr>
+<tr class="even">
+<td align="right">0.7876448</td>
+<td align="right">0.9407178</td>
+<td align="right">0.8614351</td>
+<td align="right">0.8896463</td>
+<td align="right">-0.6552224</td>
+<td align="left">8b0ace2</td>
+</tr>
+<tr class="odd">
+<td align="right">0.7876448</td>
+<td align="right">0.9407178</td>
+<td align="right">0.8614351</td>
+<td align="right">0.8896463</td>
+<td align="right">-0.6552224</td>
+<td align="left">e3dfa32</td>
+</tr>
+<tr class="even">
+<td align="right">0.6525097</td>
+<td align="right">0.7880764</td>
+<td align="right">0.8090379</td>
+<td align="right">0.7529477</td>
+<td align="right">-0.7459056</td>
+<td align="left">56f0dc9</td>
+</tr>
+</tbody>
+</table>
 </div>
 
 
