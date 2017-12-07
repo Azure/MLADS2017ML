@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, cache=TRUE, message=FALSE, fig.height=7.5)
+knitr::opts_chunk$set(echo = TRUE, cache=FALSE, message=FALSE, fig.height=7.5)
 rxOptions(reportProgress=0)
 ```
 
@@ -290,7 +290,7 @@ saveRDS(random_sample_results, sprintf("data/random_sample_results_iteration%02d
 
 ### P-values
 
-This table shows the number of times out of `r MONTE_CARLO_SAMPLES` tries that the randomly selected cases equalled or exceeded theperformance of the actively learned cases for each metric. These numbers are estimated P-values in percent.
+This table shows the fraction of times out of `r MONTE_CARLO_SAMPLES` tries that the randomly selected cases equalled or exceeded the performance of the actively learned cases for each metric. These numbers are estimated P-values.
 
 ```{r p_values}
 mapply ( 
