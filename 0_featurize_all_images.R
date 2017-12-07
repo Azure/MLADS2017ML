@@ -24,7 +24,7 @@ KNOT_CLASSES <- setNames(nm=c("sound_knot", "dry_knot", "encased_knot"))
 
 
 if(!dir.exists(DATA_DIR)) dir.create(DATA_DIR)
-  
+
 labelled_image_url <- 'https://isvdemostorageaccount.blob.core.windows.net/wood-knots/labelled_knot_images_png.zip'
 unlabelled_image_url <- 'https://isvdemostorageaccount.blob.core.windows.net/wood-knots/unlabelled_cropped_png.zip'
 names_url <- 'http://www.ee.oulu.fi/research/imag/knots/KNOTS/names.txt'
@@ -90,4 +90,3 @@ if( file.exists(LABELLED_FEATURIZED_DATA)){
   
   saveRDS(labelled_knot_data_df, LABELLED_FEATURIZED_DATA)
 }
-

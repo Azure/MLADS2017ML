@@ -178,9 +178,7 @@ initial_model_results$selected
 
 ```{r iterate}
 
-(initial_model_results$selected_labelled <- initial_model_results$selected %>% pseudolabel_function)
-
-new_sample <- initial_model_results$selected_labelled %>% get_new_pseudolabelled_sample
+new_sample <- initial_model_results$selected %>% pseudolabel_function %>% get_new_pseudolabelled_sample
 
 current_training_set <- rbind(initial_training_set, new_sample[names(initial_training_set)])
 
@@ -325,4 +323,3 @@ plot_class_separation(full_model_results$test_predictions)
 # saveRDS(training_set_full, "data/training_set_full.Rds")
 # saveRDS(test_set, "data/test_set.Rds")
 ```
-
