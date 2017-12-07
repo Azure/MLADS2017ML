@@ -47,6 +47,14 @@ fit_and_evaluate_model <- function(candidate_cases,  # pseudolabeller,
     with(dframe, entropy(sound_knot, dry_knot))
   }
   
+  prediction_logloss <- function(dframe){
+    log_probs <- sapply(1:nrow(dframe), function(i) {
+      pclass <- as.character(dframe$pred_class[i])
+      log(dframe[i, pclass])
+    })
+    -sum(log_probs)/nrow(dframe)
+  }
+  
   # NOTE: candidate_cases may include cases that are not of the classes we are modeling. 
   # We depend on labellers to remove these
   training_set_new <- candidate_cases %>% filter(knot_class %in% KNOT_CLASSES)
@@ -56,7 +64,7 @@ fit_and_evaluate_model <- function(candidate_cases,  # pseudolabeller,
     fit_new <- rxLogisticRegression(form, training_set_new,
                                     type="multiClass", 
                                     l1Weight=L1_PENALTY, l2Weight=L2_PENALTY,
-                                    reportProgress=0, verbose=0)
+                                    reportProgress=0, verbose=0, optTol=1e-12)
     
     pred_test <- rxPredict(fit_new, test_set, extraVarsToWrite=c("path", "knot_class"))
     names(pred_test) <- c("path", "knot_class", "pred_class", "sound_knot", "dry_knot", "encased_knot")
@@ -70,6 +78,7 @@ fit_and_evaluate_model <- function(candidate_cases,  # pseudolabeller,
       # selected=selected, # unlabelled
       roc_list = roc_list,
       performance = c(accuracy=with(pred_test, sum(pred_class == knot_class)/length(knot_class)),
+                      neg_logloss = -prediction_logloss(pred_test),
                       auc_sound = auc(roc_list[['sound']]),
                       auc_dry = auc(roc_list[['dry']]),
                       auc_encased = auc(roc_list[['encased']]),
