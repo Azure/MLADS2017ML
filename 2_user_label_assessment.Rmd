@@ -34,18 +34,20 @@ INITIAL_EXAMPLES_PER_CLASS <- 6  # cases from the labelled dataset used to train
 # This order determines the order of factor levels
 KNOT_CLASSES <- setNames(nm=c("sound_knot", "dry_knot", "encased_knot"))
 
-LABELLED_FEATURIZED_DATA <- "labelled_knots_featurized_resnet18.Rds"
-UNLABELLED_FEATURIZED_DATA <- "unlabelled_knots_featurized_resnet18.Rds"
+LABELLED_FEATURIZED_DATA <- "data/labelled_knots_featurized_resnet18.Rds"
+UNLABELLED_FEATURIZED_DATA <- "data/unlabelled_knots_featurized_resnet18.Rds"
 
 unlabelled_knot_data_df <- readRDS(UNLABELLED_FEATURIZED_DATA)
 # labelled_knot_data_df <- readRDS(LABELLED_FEATURIZED_DATA)
 
-TEST_SET <- readRDS("test_set.Rds")
-INITIAL_TRAINING_SET <- readRDS("initial_training_set.Rds")
+TEST_SET <- readRDS("data/test_set.Rds")
+INITIAL_TRAINING_SET <- readRDS("data/initial_training_set.Rds")
 
 inputs <- grep("^Feature", names(INITIAL_TRAINING_SET), value=TRUE)
 outcome <- "knot_class"
 FORM <- formula(paste(outcome, paste(inputs, collapse="+"), sep="~"))
+
+STANDARD_LABEL_SET <- "3dafaa1"
 
 ```
 
@@ -81,15 +83,26 @@ sql <- function(q) sqlQuery(dbhandle, q) # same syntax as sqldf
 # sql("SELECT top 5 * FROM UserKnotLabel")
 
   
-(user_knot_labels <- sql("SELECT substring(userid, 1, 7) as user_id, knotname, label_value + '_knot' as knot_class, ukl.labeltime labeltime
+(user_knot_labels <- sql("SELECT
+                              substring(userid, 1, 7) as user_id,
+                              knotname,
+                              label_value + '_knot' as knot_class,
+                              ukl.labeltime labeltime
                           FROM UserKnotLabel ukl JOIN Label ON ukl.labelid = Label.label_id
                             WHERE ukl.labeltime > DATEADD(HH,-1, GETDATE())
                             ORDER BY user_id, ukl.labeltime"))
 
-# To select cases from a particular time range, use a Where clause like this
-  # WHERE ukl.labeltime > CONVERT(datetime, '2017-11-22 04:45:00', 120)
-  #     AND ukl.labeltime < CONVERT(datetime, '2017-11-22 06:00:00', 120)
+# To select cases from a particular time range:
 
+# (user_knot_labels <- sql("SELECT 
+#                               substring(userid, 1, 7) as user_id, 
+#                               knotname, 
+#                               label_value + '_knot' as knot_class, 
+#                               ukl.labeltime labeltime
+#                           FROM UserKnotLabel ukl JOIN Label ON ukl.labelid = Label.label_id
+#                             WHERE ukl.labeltime > CONVERT(datetime, '2017-11-22 04:45:00', 120)
+#                               AND ukl.labeltime < CONVERT(datetime, '2017-11-22 06:00:00', 120)
+#                             ORDER BY user_id, ukl.labeltime"))
 
 ```
 
@@ -127,15 +140,24 @@ user_results <- lapply(user_id_vec, function(userID){
   fit_and_evaluate_model(user_training_set)
 }) %>% sapply(function(ures) ures$performance) %>% t %>% as.data.frame
 
-user_results$user_id <- factor(row.names(user_results), levels=row.names(user_results)[order(user_results$accuracy, decreasing = FALSE)])
+users_ordered <- row.names(user_results)[order(user_results$accuracy, decreasing = FALSE)]
+
+if (STANDARD_LABEL_SET %in% users_ordered){
+  users_ordered <- c(setdiff(users_ordered, STANDARD_LABEL_SET), STANDARD_LABEL_SET)
+}
+  
+user_results$user_id <- factor(row.names(user_results), levels=users_ordered)
+
+user_results <- user_results[users_ordered,]
 
 user_results %>% 
-  ggplot(aes(x=user_id, y=accuracy)) + 
+  mutate(is_standard = user_id==STANDARD_LABEL_SET) %>%
+  ggplot(aes(x=user_id, y=accuracy, col=is_standard)) + 
   geom_col() + 
   coord_flip() + 
   ggtitle("User results ranked by accuracy")
 
-knitr::kable(user_results %>% arrange(desc(accuracy)))
+knitr::kable(user_results[rev(users_ordered),])
 
 ```
 
