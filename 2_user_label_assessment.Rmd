@@ -47,7 +47,7 @@ inputs <- grep("^Feature", names(INITIAL_TRAINING_SET), value=TRUE)
 outcome <- "knot_class"
 FORM <- formula(paste(outcome, paste(inputs, collapse="+"), sep="~"))
 
-STANDARD_LABEL_SET <- "3dafaa1"
+STANDARD_LABEL_SET <- "f6f5457"
 
 ```
 
@@ -89,7 +89,7 @@ sql <- function(q) sqlQuery(dbhandle, q) # same syntax as sqldf
                               label_value + '_knot' as knot_class,
                               ukl.labeltime labeltime
                           FROM UserKnotLabel ukl JOIN Label ON ukl.labelid = Label.label_id
-                            WHERE ukl.labeltime > DATEADD(HH,-1, GETDATE())
+                            WHERE ukl.labeltime > DATEADD(HH,-2, GETDATE())
                             ORDER BY user_id, ukl.labeltime"))
 
 # To select cases from a particular time range:

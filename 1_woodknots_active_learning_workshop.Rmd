@@ -1,7 +1,6 @@
 ---
 title: "Active Learning Workshop"
 author: "Bob Horton"
-date: "November 21, 2017"
 output: html_document
 ---
 
