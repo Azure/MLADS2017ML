@@ -10,6 +10,9 @@ MLADS2017ML.Rproj
 # old files
 *_OLD*
 
+# temporaty files
+*_TEMP*
+
 # History files
 .Rhistory
 .Rapp.history

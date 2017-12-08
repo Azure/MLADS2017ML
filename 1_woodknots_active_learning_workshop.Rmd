@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, cache=FALSE, message=FALSE, fig.height=7.5)
+knitr::opts_chunk$set(echo = TRUE, cache=FALSE, message=FALSE, warning=FALSE, fig.height=7.5)
 rxOptions(reportProgress=0)
 ```
 
@@ -33,13 +33,13 @@ L2_PENALTY <- 1e-2
 
 INITIAL_EXAMPLES_PER_CLASS <- 6  # cases from the labelled dataset used to train the initial model
 
-BALANCE_CLASSES <- FALSE  # should we try to pick some cases from each of the three classes?
+BALANCE_CLASSES <- TRUE  # should we try to pick some cases from each of the three classes?
 
-ADDITIONAL_CASES_TO_LABEL <- 8  # cases per class if BALANCE_CLASSES is TRUE
+ADDITIONAL_CASES_TO_LABEL <- 12  # cases per class if BALANCE_CLASSES is TRUE
 
 NUM_ITERATIONS <- 10
 
-MONTE_CARLO_SAMPLES <- 10
+MONTE_CARLO_SAMPLES <- 100
 
 # This order determines the order of factor levels
 KNOT_CLASSES <- setNames(nm=c("sound_knot", "dry_knot", "encased_knot"))
@@ -73,8 +73,8 @@ TEST_SET <- labelled_knot_data_df[!in_training_set,]
 
 table(initial_training_set$knot_class)
 
-
-table(initial_training_set$knot_class)/nrow(initial_training_set)
+table(TEST_SET$knot_class)
+table(TEST_SET$knot_class)/nrow(TEST_SET)
 ```
 ```{r save_training_and_test_sets}
 saveRDS(TEST_SET, "data/test_set.Rds")
@@ -109,11 +109,20 @@ select_cases <- function(model, available_cases, N=ADDITIONAL_CASES_TO_LABEL, ba
       arrange(-entropy)  # -entropy  max_prob
     
     if (balance_classes){
-      return(bind_rows(
-        selected[selected$pred_class=="sound_knot",][1:N,],
-        selected[selected$pred_class=="dry_knot",][1:N,],
-        selected[selected$pred_class=="encased_knot",][1:N,]
-      ))
+      predictions_df$cluster_id <- available_cases %>%
+        dist(method="euclidean") %>%
+        hclust(method="ward.D2") %>%
+        cutree(k=N)
+ 
+      selected <- predictions_df %>%
+        mutate(entropy=entropy(sound_knot, dry_knot)) %>%
+        # mutate(max_prob=apply(cbind(sound_knot, dry_knot, encased_knot), 1, max)) %>%
+        group_by(cluster_id) %>%
+        # arrange(-entropy) %>% # max_prob
+        filter(entropy==max(entropy)) %>%
+        as.data.frame
+     
+      return(selected)
     } else{
       return(head(selected, n=N))
     }
