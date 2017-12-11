@@ -1,9 +1,9 @@
-## This script featurizes a large number of images. 
+## This script featurizes a large number of images, using the FACES dataset.
 ## We assume you have run through azureparallel_setup.R and you have worker machines in your cluster.
 
 
 ##########################################################################################
-#### Get the list of blobs to process
+#### Get the list of blobs to process. Send around URLs, not blobs!s
 library(AzureSMR)
 
 BLOB_URL_BASE = "https://storage4tomasbatch.blob.core.windows.net/tutorial/";
@@ -49,7 +49,10 @@ get_blob_info <- function(storageAccount, storageKey, container, prefix) {
 } # end get_blob_info
 
 blob_info <- get_blob_info(storageAccount, storageKey, container, prefix = "faces_small");
+
+# Switch to larger dataset and cluster
 blob_info <- get_blob_info(storageAccount, storageKey, container, prefix = "faces_full");
+registerDoAzureParallel(cluster2)
 
 ##########################################################################################
 # Parallel kernel for featurization
@@ -64,7 +67,8 @@ parallel_kernel <- function(blob_info) {
   
   # do this in paralell, too
   for (i in 1:nrow(blob_info)) {
-    download.file(blob_info$url[[i]], destfile = file.path(DATA_DIR, blob_info$fname[[i]]))
+    targetfile <- file.path(DATA_DIR, blob_info$fname[[i]]);
+    download.file(blob_info$url[[i]], destfile = targetfile, mode="wb")
   }
   
   blob_info$localname <- paste(DATA_DIR, sep='/', blob_info$fname);
@@ -77,9 +81,11 @@ parallel_kernel <- function(blob_info) {
                                                     extractPixels(vars = "Features"),
                                                     featurizeImage(var = "Features",
                                                                    dnnModel = "Resnet18")),
-                                mlTransformVars = c("url"),
+                                mlTransformVars = c("localname"),
                                 reportProgress=1)
-  image_features
+  
+  image_features$url <- blob_info$url;
+  return(image_features)
 }
 
 
@@ -105,7 +111,7 @@ print(paste0("Ran for ", as.numeric(end_time - start_time, units="secs"), " seco
 ##########################################################################################
 #### Run the parallel kernel
 
-BATCH_SIZE = 14;                            # 27 is two tasks per node on small dataset and small cluster
+BATCH_SIZE = 200;                            # 27 is two tasks per node on small dataset and small cluster
                                              # 14 is one tasks per node on small dataset and big cluster
                                              # larger batch size for larger dataset will defray overhead
 NO_BATCHES = ceiling(nrow(blob_info)/BATCH_SIZE);
@@ -123,7 +129,7 @@ end_time <- Sys.time()
 print(paste0("Ran for ", as.numeric(end_time - start_time, units="secs"), " seconds"))
 
 ## 108 images take ~54 seconds on small cluster (2 img/s) 
-## 108 images take ~24 seconds on large cluster (5 img/s) (cluster overhead)
+## 108 images take ~24 seconds on large cluster (5 img/s)
 ##  5k images take ~255 seconds on large cluster (20 img/s)
 ## 10k images take ~417 seconds on large cluster (23 img/s) 
 ## 8 nodes -> 4.5x speedup vs local. My desktop is a bigger machine, so great!
@@ -138,6 +144,8 @@ single_df$fname <- sapply(strsplit(single_df$url, '/'), function(l) {l[6]})
 single_df$bname <- sapply(strsplit(single_df$fname, ".", fixed=TRUE), function(l) l[1])
 single_df$pname <- sapply(strsplit(single_df$fname, "_", fixed=TRUE), 
                           function(l) paste(l[1:(length(l)-1)], collapse=" "))
+
+rownames(single_df) <- single_df$bname;
 
 # save results as an Rds
 saveRDS(single_df, "faces_featurized_resnet18.Rds")
@@ -157,6 +165,49 @@ plottable$featval <- type.convert(plottable$featval);                       # ma
     geom_tile(aes(fill = featval), colour = "white") +
     scale_fill_gradient(low = "white",high = "steelblue")
 )
+
+#######################################################################################
+#### Find closest and average image
+library(imager)
+
+### Finds the image closest to i-th row, in L1 sense 
+closestL1 <- function(single_df, i) {
+
+  # show the picture
+  localfile <- paste(DATA_DIR, sep='/', single_df$fname[[i]])
+  if (file.exists(localfile)) {
+    im<-load.image(localfile)
+  } else {
+    im<-load.image(single_df$url[[i]])
+  }
+  plot(im, axes=F )
+  
+  numdf <- dplyr::select_if(single_df,is.numeric);
+  rownames(numdf)[[i]];
+
+  N = nrow(numdf);
+  demean <- sweep(numdf, 2, as.numeric(numdf[i,]), "-");
+  numdf$l1 <- rowSums(abs(demean));
+  numdf$l1[[i]] <- Inf           # we don't want the same datapoint to be the closest
+  closest <- which(numdf$l1 == min(numdf$l1));
+  
+  return(closest)
+  
+}
+
+# plot series of closest images, each row starts with seed image and finds next closest.
+par(mfrow=c(6,5), mar=c(0.1,0.1,0.1,0.1))
+for (i in c(2,3,4,5,6,7)) {
+  nxt <- i;
+  ims <- c();
+  for (j in 1:5) {
+    nxt <- closestL1(single_df, nxt)
+  }
+}
+
+
+
+
 
 
 
