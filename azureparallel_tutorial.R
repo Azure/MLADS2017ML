@@ -59,7 +59,7 @@ parallel_kernel <- function(blob_info) {
   library(utils)
   
   # get the images from blob and do them locally
-  DATA_DIR <- file.path(getwd(), 'data');
+  DATA_DIR <- file.path(getwd(), 'localdata');
   if(!dir.exists(DATA_DIR)) dir.create(DATA_DIR);
   
   # do this in paralell, too
@@ -81,6 +81,7 @@ parallel_kernel <- function(blob_info) {
                                 reportProgress=1)
   image_features
 }
+
 
 ##########################################################################################
 #### Run the parallel kernel locally
@@ -104,7 +105,7 @@ print(paste0("Ran for ", as.numeric(end_time - start_time, units="secs"), " seco
 ##########################################################################################
 #### Run the parallel kernel
 
-BATCH_SIZE = 200;                            # 27 is two tasks per node on small dataset and small cluster
+BATCH_SIZE = 14;                            # 27 is two tasks per node on small dataset and small cluster
                                              # 14 is one tasks per node on small dataset and big cluster
                                              # larger batch size for larger dataset will defray overhead
 NO_BATCHES = ceiling(nrow(blob_info)/BATCH_SIZE);

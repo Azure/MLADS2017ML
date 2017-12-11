@@ -1,7 +1,6 @@
 ---
 title: "Active Learning Workshop"
 author: "Bob Horton"
-date: "November 21, 2017"
 output: html_document
 ---
 
@@ -33,13 +32,13 @@ L2_PENALTY <- 1e-2
 
 INITIAL_EXAMPLES_PER_CLASS <- 6  # cases from the labelled dataset used to train the initial model
 
-BALANCE_CLASSES <- TRUE  # should we try to pick some cases from each of the three classes?
+BALANCE_CLASSES <- FALSE  # should we try to pick some cases from each of the three classes?
 
-ADDITIONAL_CASES_TO_LABEL <- 2  # cases per class if BALANCE_CLASSES is TRUE
+ADDITIONAL_CASES_TO_LABEL <- 8  # cases per class if BALANCE_CLASSES is TRUE
 
 NUM_ITERATIONS <- 10
 
-MONTE_CARLO_SAMPLES <- 100
+MONTE_CARLO_SAMPLES <- 10
 
 # This order determines the order of factor levels
 KNOT_CLASSES <- setNames(nm=c("sound_knot", "dry_knot", "encased_knot"))
@@ -104,8 +103,9 @@ select_cases <- function(model, available_cases, N=ADDITIONAL_CASES_TO_LABEL, ba
     names(predictions_df) <- c("path", "pred_class", "sound_knot", "dry_knot", "encased_knot")
     
     selected <- predictions_df %>%
+      mutate(entropy=entropy(sound_knot, dry_knot)) %>%
       mutate(max_prob=apply(cbind(sound_knot, dry_knot, encased_knot), 1, max)) %>%
-      arrange(max_prob)  # -entropy
+      arrange(-entropy)  # -entropy  max_prob
     
     if (balance_classes){
       return(bind_rows(
