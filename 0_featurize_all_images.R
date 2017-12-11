@@ -1,4 +1,4 @@
-# sCRIPT that featurizes all images
+# Featurize all wood knot images: turn a directory full of images into a dataframe (X or {X,y})
 
 # DATA SOURCE:
 # 
@@ -8,6 +8,11 @@
 # We have converted all of the individual knot images to PNG format, and in this script we download zip files containing PNG versions
 # of the labelled images and the segmented unlabelled images from Azure blob storage.
 
+#####################################################################
+## dependencies
+
+#####################################################################
+#### Bookkeeping
 
 DATA_DIR <- file.path(getwd(), 'data')
 
@@ -25,6 +30,8 @@ KNOT_CLASSES <- setNames(nm=c("sound_knot", "dry_knot", "encased_knot"))
 
 if(!dir.exists(DATA_DIR)) dir.create(DATA_DIR)
 
+#####################################################################
+#### Get original data
 labelled_image_url <- 'https://isvdemostorageaccount.blob.core.windows.net/wood-knots/labelled_knot_images_png.zip'
 unlabelled_image_url <- 'https://isvdemostorageaccount.blob.core.windows.net/wood-knots/unlabelled_cropped_png.zip'
 names_url <- 'http://www.ee.oulu.fi/research/imag/knots/KNOTS/names.txt'
@@ -37,6 +44,9 @@ unzip(file.path(DATA_DIR, 'knot_images_png.zip'), exdir = DATA_DIR)
 unzip(file.path(DATA_DIR, 'unlabelled_cropped_png.zip'), exdir = DATA_DIR)
 
 
+#####################################################################
+#### What function to featurize with?
+
 # I have a beta version that capitalized the model name. This should (?) work for other folks.
 DNN_MODEL <- if ("Microsoft R Server version 9.2.0.2731 (2017-07-26 06:17:26 UTC)" == Revo.version$version.string){
   "Resnet18"
@@ -44,6 +54,8 @@ DNN_MODEL <- if ("Microsoft R Server version 9.2.0.2731 (2017-07-26 06:17:26 UTC
   "resnet18"
 }
 
+#####################################################################
+#### Just do it
 
 featurize_directory <- function(dir){
   pwd <- setwd(dir)
@@ -66,9 +78,12 @@ featurize_directory <- function(dir){
 # Note: be sure the file name has not been converted to a factor! If it has, you get an error like this:
 # Exception: 'Source column 'path' has invalid type ('Key<U4, 0-595>'): Expected Text type.
 
+
+#### If you already have the featurized data, don't bother creating it again, loading it is faster.
 if( file.exists(UNLABELLED_FEATURIZED_DATA)){
   unlabelled_knot_data_df <- readRDS(UNLABELLED_FEATURIZED_DATA)
 } else {
+  # takes about 2 minutes
   unlabelled_knot_data_df <- featurize_directory(UNLABELLED_IMAGE_DIR)
   saveRDS(unlabelled_knot_data_df, UNLABELLED_FEATURIZED_DATA)
 }

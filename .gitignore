@@ -49,3 +49,9 @@ vignettes/*.pdf
 /credentials.json
 /.vs/MLADS2017ML/v15/.suo
 /.vs/VSWorkspaceState.json
+/data/knot_images_png
+/data/unlabelled_cropped_png
+*.jpg
+/data/unlabelled_cropped_png.zip
+/data/names.txt
+/data/knot_images_png.zip

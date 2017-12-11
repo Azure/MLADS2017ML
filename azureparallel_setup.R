@@ -1,7 +1,7 @@
-## This script sets everything up for using azureParallel
+## This script sets everything up for using doAzureParallel
 
 # Install required packages and dependencies
-install.packages(c("devtools", "dplyr", "tidyr", "ggplot2", "magrittr"))
+install.packages(c("devtools", "dplyr", "tidyr", "ggplot2", "magrittr"));
 devtools::install_github("Azure/rAzureBatch@v0.5.1")
 devtools::install_github("Azure/doAzureParallel@v0.5.1")
 
@@ -33,16 +33,17 @@ generateCredentialsConfig("credentials_default.json")
 setCredentials("credentials.json")
 
 # 4. Register the pool. This will create a new pool if your pool hasn't already been provisioned.
-cluster <- makeCluster("cluster_centos.json")
-cluster2 <- makeCluster("cluster_large.json")
+cluster <- makeCluster("cluster_centos.json")   # 2 nodes 
+cluster2 <- makeCluster("cluster_large.json")   # 8+8 nodes
+
+### Check your cluster in Azure Portal
 
 # 5. Register the pool as your parallel backend - one of these!
-registerDoAzureParallel(cluster)
+# registerDoAzureParallel(cluster)  
 registerDoAzureParallel(cluster2)
 
 # 6. Check that your parallel backend has been registered
 getDoParWorkers()
-
 
 ### do work on cluster
 
