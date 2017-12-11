@@ -167,6 +167,7 @@ plottable$featval <- type.convert(plottable$featval);                       # ma
 #### Find closest and average image
 library(imager)
 
+### Finds the image closest to i-th row, in L1 sense 
 closestL1 <- function(single_df, i) {
 
   # show the picture
@@ -191,7 +192,7 @@ closestL1 <- function(single_df, i) {
   
 }
 
-# plot series of closest images
+# plot series of closest images, each row starts with seed image and finds next closest.
 par(mfrow=c(6,5), mar=c(0.1,0.1,0.1,0.1))
 for (i in c(2,3,4,5,6,7)) {
   nxt <- i;
@@ -199,13 +200,6 @@ for (i in c(2,3,4,5,6,7)) {
   for (j in 1:5) {
     nxt <- closestL1(single_df, nxt)
   }
-}
-
-
-## find the 10 images closest to the line connecting "first" and "second" images
-blend <- function(df, first, second) {
-  
-  
 }
 
 
