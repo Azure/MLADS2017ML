@@ -64,7 +64,8 @@ parallel_kernel <- function(blob_info) {
   
   # do this in paralell, too
   for (i in 1:nrow(blob_info)) {
-    download.file(blob_info$url[[i]], destfile = file.path(DATA_DIR, blob_info$fname[[i]]))
+    targetfile <- file.path(DATA_DIR, blob_info$fname[[i]]);
+    download.file(blob_info$url[[i]], destfile = targetfile, mode="wb")
   }
   
   blob_info$localname <- paste(DATA_DIR, sep='/', blob_info$fname);
@@ -77,9 +78,11 @@ parallel_kernel <- function(blob_info) {
                                                     extractPixels(vars = "Features"),
                                                     featurizeImage(var = "Features",
                                                                    dnnModel = "Resnet18")),
-                                mlTransformVars = c("url"),
+                                mlTransformVars = c("localname"),
                                 reportProgress=1)
-  image_features
+  
+  image_features$url <- blob_info$url;
+  return(image_features)
 }
 
 
@@ -139,6 +142,8 @@ single_df$bname <- sapply(strsplit(single_df$fname, ".", fixed=TRUE), function(l
 single_df$pname <- sapply(strsplit(single_df$fname, "_", fixed=TRUE), 
                           function(l) paste(l[1:(length(l)-1)], collapse=" "))
 
+rownames(single_df) <- single_df$bname;
+
 # save results as an Rds
 saveRDS(single_df, "faces_featurized_resnet18.Rds")
 
@@ -157,6 +162,55 @@ plottable$featval <- type.convert(plottable$featval);                       # ma
     geom_tile(aes(fill = featval), colour = "white") +
     scale_fill_gradient(low = "white",high = "steelblue")
 )
+
+#######################################################################################
+#### Find closest and average image
+library(imager)
+
+closestL1 <- function(single_df, i) {
+
+  # show the picture
+  localfile <- paste(DATA_DIR, sep='/', single_df$fname[[i]])
+  if (file.exists(localfile)) {
+    im<-load.image(localfile)
+  } else {
+    im<-load.image(single_df$url[[i]])
+  }
+  plot(im, axes=F )
+  
+  numdf <- dplyr::select_if(single_df,is.numeric);
+  rownames(numdf)[[i]];
+
+  N = nrow(numdf);
+  demean <- sweep(numdf, 2, as.numeric(numdf[i,]), "-");
+  numdf$l1 <- rowSums(abs(demean));
+  numdf$l1[[i]] <- Inf           # we don't want the same datapoint to be the closest
+  closest <- which(numdf$l1 == min(numdf$l1));
+  
+  return(closest)
+  
+}
+
+# plot series of closest images
+par(mfrow=c(6,5), mar=c(0.1,0.1,0.1,0.1))
+for (i in c(2,3,4,5,6,7)) {
+  nxt <- i;
+  ims <- c();
+  for (j in 1:5) {
+    nxt <- closestL1(single_df, nxt)
+  }
+}
+
+
+## find the 10 images closest to the line connecting "first" and "second" images
+blend <- function(df, first, second) {
+  
+  
+}
+
+
+
+
 
 
 

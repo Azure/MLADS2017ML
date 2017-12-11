@@ -49,3 +49,4 @@ vignettes/*.pdf
 /credentials.json
 /.vs/MLADS2017ML/v15/.suo
 /.vs/VSWorkspaceState.json
+/localdata
